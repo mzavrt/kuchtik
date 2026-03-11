@@ -106,7 +106,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const MyHomePage(title: "HomePage")), 
+        MaterialPageRoute(builder: (context) => const MainPage(title: "HomePage")), 
         (Route<dynamic> route) => false,);
  
     } catch (e) {
