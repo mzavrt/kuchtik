@@ -1,9 +1,11 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:kuchtik/main.dart';
 import 'package:pinput/pinput.dart';
+
+import 'package:kuchtik/app/main_page.dart';
+import 'package:kuchtik/core/data/supabase_client.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -12,30 +14,28 @@ class LoginPage extends StatefulWidget {
 }
 
 class _LoginPageState extends State<LoginPage> {
-    bool _isLoading = false;
-    late final TextEditingController _emailController = TextEditingController();
+  bool _isLoading = false;
+  late final TextEditingController _emailController = TextEditingController();
 
-    Future<void> _signIn() async {
-      try {
-        setState(() {
-          _isLoading = true;
-        });
-        await supabase.auth.signInWithOtp(
-          email: _emailController.text.trim()
+  Future<void> _signIn() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      await supabase.auth.signInWithOtp(email: _emailController.text.trim());
+
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                OtpVerificationScreen(email: _emailController.text.trim()),
+          ),
         );
-
-        if(mounted) {
-          Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => OtpVerificationScreen(email: _emailController.text.trim()),
-        ),
-      );
-        }
       }
-      on AuthException catch (error) {
+    } on AuthException catch (_) {
       //if (mounted) context.showSnackBar(error.message, isError: true);
-    } catch (error) {
+    } catch (_) {
       if (mounted) {
         //context.showSnackBar('Unexpected error occurred', isError: true);
       }
@@ -48,16 +48,16 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-    @override
-    Widget build(BuildContext builder){
-       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Sign In'),
-        ),
-        body: ListView(
-          padding:  const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
-          children: [
-            const Text('Enter your email to sign in'),
+  @override
+  Widget build(BuildContext builder) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Sign In'),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+        children: [
+          const Text('Enter your email to sign in'),
           const SizedBox(height: 18),
           TextFormField(
             controller: _emailController,
@@ -68,11 +68,10 @@ class _LoginPageState extends State<LoginPage> {
             onPressed: _isLoading ? null : _signIn,
             child: Text(_isLoading ? 'Sending...' : 'Sign in'),
           )
-          ],
-        ),
-       );
-    }
-
+        ],
+      ),
+    );
+  }
 }
 
 class OtpVerificationScreen extends StatefulWidget {
@@ -85,7 +84,6 @@ class OtpVerificationScreen extends StatefulWidget {
 }
 
 class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
-  final _supabase = Supabase.instance.client;
   bool _isLoading = false;
 
   Future<void> _verifyOtp(String pin) async {
@@ -93,29 +91,27 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
 
     try {
       // Ověření zadaného OTP kódu
-      await _supabase.auth.verifyOTP(
+      await supabase.auth.verifyOTP(
         type: OtpType.email,
         email: widget.email,
         token: pin,
       );
 
-      //Session?
-      //User?
-
       if (!mounted) return;
 
       Navigator.pushAndRemoveUntil(
         context,
-        MaterialPageRoute(builder: (context) => const MainPage(title: "HomePage")), 
-        (Route<dynamic> route) => false,);
- 
-    } catch (e) {
-      if(mounted){
-        ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Neplatný kód. Zkuste to prosím znovu.')),
+        MaterialPageRoute(
+          builder: (context) => const MainPage(title: 'HomePage'),
+        ),
+        (Route<dynamic> route) => false,
       );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Neplatný kód. Zkuste to prosím znovu.')),
+        );
       }
-      
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -126,8 +122,6 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Ověření e-mailu'),
-        // Tlačítko zpět je přidáno automaticky díky Navigator.push, 
-        // ale pro jistotu ho zde necháme zmíněné z UX hlediska.
       ),
       body: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -139,36 +133,28 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            
-            // UX detail: Zobrazení e-mailu a tlačítko pro rychlou úpravu
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(widget.email, style: const TextStyle(color: Colors.grey)),
                 TextButton(
-                  onPressed: () => Navigator.pop(context), // Vrátí o krok zpět
+                  onPressed: () => Navigator.pop(context),
                   child: const Text('Změnit'),
                 ),
               ],
             ),
             const SizedBox(height: 32),
-
-            // OTP Políčka
             Pinput(
               length: 6,
               autofocus: true,
               keyboardType: TextInputType.number,
               onCompleted: (pin) {
-                // Auto-submit: jakmile uživatel napíše 6. číslo, ověřujeme
                 _verifyOtp(pin);
               },
             ),
-            
             const SizedBox(height: 32),
             if (_isLoading) const CircularProgressIndicator(),
-            
             const SizedBox(height: 32),
-            // Zde by ideálně byl odpočet (Timer) a po jeho vypršení tlačítko "Poslat znovu"
             TextButton(
               onPressed: () {
                 // Logika pro opětovné odeslání e-mailu

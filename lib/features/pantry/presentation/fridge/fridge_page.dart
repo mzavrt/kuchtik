@@ -1,28 +1,26 @@
 import 'package:flutter/material.dart';
 
 import 'package:diacritic/diacritic.dart';
-import 'package:kuchtik/screens/fridge_screen/widgets/ingredient_card.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:kuchtik/models/user_ingredient.dart';
-import 'package:kuchtik/models/ingredient.dart';
-
-import 'widgets/add_ingredient.dart';
+import 'package:kuchtik/core/data/supabase_client.dart';
+import 'package:kuchtik/features/pantry/domain/ingredient.dart';
+import 'package:kuchtik/features/pantry/domain/user_ingredient.dart';
+import 'package:kuchtik/features/pantry/presentation/fridge/widgets/add_ingredient_sheet.dart';
+import 'package:kuchtik/features/pantry/presentation/fridge/widgets/ingredient_card.dart';
 
 //TODO: Ikony
 //TODO: Update mnoštví surovin
 //
 
-class FridgeScreen extends StatefulWidget {
-  const FridgeScreen({Key? key}) : super(key: key);
+class FridgePage extends StatefulWidget {
+  const FridgePage({Key? key}) : super(key: key);
 
   @override
-  State<FridgeScreen> createState() => _FridgeScreenState();
+  State<FridgePage> createState() => _FridgePageState();
 }
 
-final supabase = Supabase.instance.client;
-
-class _FridgeScreenState extends State<FridgeScreen> {
+class _FridgePageState extends State<FridgePage> {
   List<Ingredient> _allIngredients = [];
   List<UserIngredient> _userIngredients = [];
   Ingredient? _selectedIngredient;
@@ -70,17 +68,15 @@ class _FridgeScreenState extends State<FridgeScreen> {
 
     if (!mounted) return;
     setState(() {
-      _userIngredients = List<Map<String, dynamic>>.from(
-        result,
-      ).map((e) => UserIngredient.fromJson(e)).toList();
+      _userIngredients = List<Map<String, dynamic>>.from(result)
+          .map((e) => UserIngredient.fromJson(e))
+          .toList();
     });
   }
 
   List<Ingredient> _filterIngredientNames(String query) {
     if (query.isEmpty) {
-      return _allIngredients
-          .take(5)
-          .toList(); // Return first 5 items if no match
+      return _allIngredients.take(5).toList(); // Return first 5 items if no match
     }
 
     final normalizedQuery = removeDiacritics(query).toLowerCase();
@@ -88,13 +84,13 @@ class _FridgeScreenState extends State<FridgeScreen> {
     return _allIngredients
         .where(
           (ingredient) =>
-              removeDiacritics(
-                ingredient.name,
-              ).toLowerCase().contains(normalizedQuery) ||
+              removeDiacritics(ingredient.name)
+                  .toLowerCase()
+                  .contains(normalizedQuery) ||
               ingredient.searchAliases.any(
-                (alias) => removeDiacritics(
-                  alias,
-                ).toLowerCase().contains(normalizedQuery),
+                (alias) => removeDiacritics(alias)
+                    .toLowerCase()
+                    .contains(normalizedQuery),
               ),
         )
         .take(5)
@@ -179,9 +175,7 @@ class _FridgeScreenState extends State<FridgeScreen> {
           .eq('id', userIngredientId);
       if (!mounted) return;
       setState(() {
-        final index = _userIngredients.indexWhere(
-          (e) => e.id == userIngredientId,
-        );
+        final index = _userIngredients.indexWhere((e) => e.id == userIngredientId);
         if (index != -1) {
           final existing = _userIngredients[index];
           _userIngredients[index] = existing.copyWith(
@@ -251,7 +245,6 @@ class _FridgeScreenState extends State<FridgeScreen> {
               onConfirm: _addIngredient,
               confirmLabel: 'Add',
             ),
-
           Expanded(
             child: IngredientsList(
               items: _userIngredients,
@@ -264,9 +257,8 @@ class _FridgeScreenState extends State<FridgeScreen> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Add new item')));
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('Add new item')));
           showModalBottomSheet(
             context: context,
             useSafeArea: false,
@@ -350,7 +342,6 @@ class ViewIngredientCard extends StatelessWidget {
             onPressed: () => onRemove(item.id),
           ),
           subtitle: Text('${item.amount} ${item.unit}'),
-
           onTap: () async {
             await showModalBottomSheet<void>(
               context: context,

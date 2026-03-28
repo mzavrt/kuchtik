@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import 'package:kuchtik/models/photo_ingredient.dart';
-import 'package:kuchtik/screens/fridge_screen/fridge_screen.dart';
-import 'package:kuchtik/screens/fridge_screen/widgets/ingredient_card.dart';
+import 'package:kuchtik/core/data/supabase_client.dart';
+import 'package:kuchtik/features/pantry/domain/photo_ingredient.dart';
+import 'package:kuchtik/features/pantry/presentation/fridge/widgets/ingredient_card.dart';
 
 class ImageResultsScreen extends StatefulWidget {
   const ImageResultsScreen({super.key, required this.ingredientsFromImage});
@@ -15,7 +15,6 @@ class ImageResultsScreen extends StatefulWidget {
 class _ImageResultsScreenState extends State<ImageResultsScreen> {
   late final List<TextEditingController> _controllers;
   late final List<String> _units;
-
 
   Future<void> _confirmIngredients() async {
     // Here you would typically send the confirmed ingredients to your backend or update your state
@@ -35,8 +34,15 @@ class _ImageResultsScreenState extends State<ImageResultsScreen> {
   @override
   void initState() {
     super.initState();
-    _controllers = List.generate(widget.ingredientsFromImage.length, (i) => TextEditingController(text: widget.ingredientsFromImage[i].amount.toString()));
-    _units = widget.ingredientsFromImage.map((i) => i.unit.isNotEmpty ? i.unit : i.ingredient.defaultUnit).toList();
+    _controllers = List.generate(
+      widget.ingredientsFromImage.length,
+      (i) => TextEditingController(
+        text: widget.ingredientsFromImage[i].amount.toString(),
+      ),
+    );
+    _units = widget.ingredientsFromImage
+        .map((i) => i.unit.isNotEmpty ? i.unit : i.ingredient.defaultUnit)
+        .toList();
   }
 
   @override
@@ -61,7 +67,8 @@ class _ImageResultsScreenState extends State<ImageResultsScreen> {
             amountController: _controllers[index],
             unit: _units[index],
             units: const ['g', 'ml', 'ks', 'l', 'kg'],
-            onUnitChanged: (v) => setState(() => _units[index] = v ?? _units[index]),
+            onUnitChanged: (v) =>
+                setState(() => _units[index] = v ?? _units[index]),
             onConfirm: null, // <-- hides the button
           );
         },

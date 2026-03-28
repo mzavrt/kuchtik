@@ -1,7 +1,6 @@
-import 'package:kuchtik/models/ingredient.dart';
+import 'package:kuchtik/features/pantry/domain/ingredient.dart';
 
 class PhotoIngredient {
- 
   final Ingredient ingredient;
   final double amount;
   final String unit;

@@ -1,5 +1,3 @@
-import 'dart:ffi';
-
 class Recipe {
   String title;
   String instructions;
@@ -27,6 +25,4 @@ class Recipe {
       tags: List<String>.from(json['tags'] as List<dynamic>),
     );
   }
-
-  
 }

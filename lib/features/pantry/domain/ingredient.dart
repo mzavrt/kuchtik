@@ -5,7 +5,13 @@ class Ingredient {
   final String defaultUnit;
   final List<String> searchAliases;
 
-  Ingredient({required this.id, required this.name, required this.category, required this.defaultUnit, required this.searchAliases});
+  Ingredient({
+    required this.id,
+    required this.name,
+    required this.category,
+    required this.defaultUnit,
+    required this.searchAliases,
+  });
 
   factory Ingredient.fromJson(Map<String, dynamic> json) {
     return Ingredient(

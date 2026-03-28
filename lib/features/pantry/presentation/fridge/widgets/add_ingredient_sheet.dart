@@ -2,9 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:kuchtik/main.dart';
-import 'package:kuchtik/models/photo_ingredient.dart';
-import 'package:kuchtik/screens/fridge_screen/image_result_screen.dart';
+
+import 'package:kuchtik/core/data/supabase_client.dart';
+import 'package:kuchtik/features/pantry/domain/photo_ingredient.dart';
+import 'package:kuchtik/features/pantry/presentation/fridge/image_results_page.dart';
 
 class AddIngredientWidget extends StatelessWidget {
   const AddIngredientWidget({super.key});
@@ -21,13 +22,13 @@ class AddIngredientWidget extends StatelessWidget {
     final bytes = await pickedFile.readAsBytes();
     final imageBase64 = base64Encode(bytes);
 
-    final mimeType =
-        pickedFile.mimeType ??
+    final mimeType = pickedFile.mimeType ??
         (pickedFile.path.toLowerCase().endsWith('.png')
             ? 'image/png'
             : 'image/jpeg');
 
     final session = supabase.auth.currentSession;
+    // ignore: avoid_print
     print(session?.accessToken);
 
     //matched ingrdients list from edge function
@@ -56,16 +57,15 @@ class AddIngredientWidget extends StatelessWidget {
           'How you wanna add an item?',
           style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        SizedBox(height: 16),
+        const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(const SnackBar(content: Text('Add manually')));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('Add manually')));
               },
               icon: const Icon(Icons.edit),
               label: const Text('Manually'),
@@ -82,7 +82,8 @@ class AddIngredientWidget extends StatelessWidget {
 
                 rootNav.push(
                   MaterialPageRoute(
-                    builder: (_) => ImageResultsScreen(ingredientsFromImage: results),
+                    builder: (_) =>
+                        ImageResultsScreen(ingredientsFromImage: results),
                   ),
                 );
               },
@@ -101,7 +102,8 @@ class AddIngredientWidget extends StatelessWidget {
 
                 rootNav.push(
                   MaterialPageRoute(
-                    builder: (_) => ImageResultsScreen(ingredientsFromImage: results),
+                    builder: (_) =>
+                        ImageResultsScreen(ingredientsFromImage: results),
                   ),
                 );
               },
@@ -110,7 +112,7 @@ class AddIngredientWidget extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: 38),
+        const SizedBox(height: 38),
       ],
     );
   }

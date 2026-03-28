@@ -13,7 +13,6 @@ class IngredientCard extends StatelessWidget {
     this.confirmLabel = 'Add',
   });
 
-
   final String title;
   final TextEditingController amountController;
   final String unit;
@@ -22,16 +21,16 @@ class IngredientCard extends StatelessWidget {
 
   final VoidCallback? onConfirm; // <-- if null, no button
   final String confirmLabel;
-
-  late bool integerOnly = unit == 'ks' || unit == 'g' || unit == 'ml';
   final decimalFormatter = TextInputFormatter.withFunction((oldValue, newValue) {
-  final text = newValue.text;
-  final ok = RegExp(r'^\d*([.,]\d*)?$').hasMatch(text); // one dot OR comma
-  return ok ? newValue : oldValue;
-});
+    final text = newValue.text;
+    final ok = RegExp(r'^\d*([.,]\d*)?$').hasMatch(text); // one dot OR comma
+    return ok ? newValue : oldValue;
+  });
 
   @override
   Widget build(BuildContext context) {
+    final integerOnly = unit == 'ks' || unit == 'g' || unit == 'ml';
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -45,8 +44,11 @@ class IngredientCard extends StatelessWidget {
                 Expanded(
                   child: TextField(
                     controller: amountController,
-                    keyboardType: TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: integerOnly ? [FilteringTextInputFormatter.digitsOnly] : [decimalFormatter],                 
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: integerOnly
+                        ? [FilteringTextInputFormatter.digitsOnly]
+                        : [decimalFormatter],
                     decoration: const InputDecoration(labelText: 'Amount'),
                   ),
                 ),
