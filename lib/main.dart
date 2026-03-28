@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:kuchtik/screens/home_screen/home_screen.dart';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'package:kuchtik/pages/fridge_page.dart';
-import 'package:kuchtik/pages/login_page.dart';
+import 'package:kuchtik/screens/fridge_screen/fridge_screen.dart';
+import 'package:kuchtik/screens/login_screen.dart';
 
 
 void main() async {
@@ -53,8 +54,8 @@ class _MainPageState extends State<MainPage> {
   int _selectedIndex = 1;
 
   final List<Widget> _pages = [
-    const FridgePage(),
-    const Center(child: Text('Home Page')),
+    const FridgeScreen(),
+    const HomeScreen(),
     const Center(child: Text('My Recipes Page')),
   ];
 

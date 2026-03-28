@@ -38,6 +38,8 @@ dependencies:
   pinput: ^6.0.2
   flutter_dotenv: ^6.0.0
   diacritic: ^0.1.6
+  image_picker: ^1.2.1
+
 
 dev_dependencies:
   flutter_test:

@@ -4,7 +4,7 @@ import 'package:kuchtik/models/ingredient.dart';
 class UserIngredient {
   final String id; //UUID
   final Ingredient ingredient;
-  final int amount;
+  final double amount;
   final String unit;
 
   UserIngredient({
@@ -18,8 +18,22 @@ class UserIngredient {
     return UserIngredient(
       id: json['id'],
       ingredient: Ingredient.fromJson(json['ingredients']), //Table ingredients
-      amount: json['amount'],
+      amount: (json['amount'] as num).toDouble(),
       unit: json['unit'],
+    );
+  }
+
+  UserIngredient copyWith({
+    String? id,
+    Ingredient? ingredient,
+    double? amount,
+    String? unit,
+  }) {
+    return UserIngredient(
+      id: id ?? this.id,
+      ingredient: ingredient ?? this.ingredient,
+      amount: amount ?? this.amount,
+      unit: unit ?? this.unit,
     );
   }
 }
