@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pinput/pinput.dart';
 
-import 'package:kuchtik/app/main_page.dart';
-import 'package:kuchtik/core/data/supabase_client.dart';
+import 'package:kuchtik/app/ui/main_screen.dart';
+import 'package:kuchtik/core/providers/supabase_client.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -102,7 +102,7 @@ class _OtpVerificationScreenState extends State<OtpVerificationScreen> {
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
-          builder: (context) => const MainPage(title: 'HomePage'),
+          builder: (context) => const MainScreen(title: 'HomePage'),
         ),
         (Route<dynamic> route) => false,
       );

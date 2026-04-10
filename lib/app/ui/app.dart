@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import 'package:kuchtik/app/main_page.dart';
-import 'package:kuchtik/core/data/supabase_client.dart';
+import 'package:kuchtik/app/ui/main_screen.dart';
+import 'package:kuchtik/core/providers/supabase_client.dart';
 import 'package:kuchtik/features/auth/presentation/login/login_page.dart';
 
 class MyApp extends StatelessWidget {
@@ -16,7 +16,7 @@ class MyApp extends StatelessWidget {
       ),
       home: supabase.auth.currentSession == null
           ? const LoginPage()
-          : const MainPage(title: 'Test'),
+          : const MainScreen(title: 'Test'),
     );
   }
 }

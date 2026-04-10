@@ -1,100 +1,41 @@
 import 'package:flutter/material.dart';
 
-import 'package:diacritic/diacritic.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
-import 'package:kuchtik/core/data/supabase_client.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kuchtik/features/pantry/domain/ingredient.dart';
 import 'package:kuchtik/features/pantry/domain/user_ingredient.dart';
-import 'package:kuchtik/features/pantry/presentation/fridge/widgets/add_ingredient_sheet.dart';
-import 'package:kuchtik/features/pantry/presentation/fridge/widgets/ingredient_card.dart';
+import 'package:kuchtik/features/pantry/ui/widgets/add_ingredient_sheet.dart';
+import 'package:kuchtik/features/pantry/ui/widgets/ingredient_card.dart';
+import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
 
 //TODO: Ikony
 //TODO: Update mnoštví surovin
 //
 
-class FridgePage extends StatefulWidget {
-  const FridgePage({Key? key}) : super(key: key);
+class FridgeScreen extends ConsumerStatefulWidget {
+  const FridgeScreen({Key? key}) : super(key: key);
 
   @override
-  State<FridgePage> createState() => _FridgePageState();
+  ConsumerState<FridgeScreen> createState() => _FridgeScreenState();
 }
 
-class _FridgePageState extends State<FridgePage> {
-  List<Ingredient> _allIngredients = [];
-  List<UserIngredient> _userIngredients = [];
+class _FridgeScreenState extends ConsumerState<FridgeScreen> {
   Ingredient? _selectedIngredient;
   final TextEditingController _amountController = TextEditingController();
+  final TextEditingController _priceController = TextEditingController();
   late String _selectedUnit;
+  DateTime _selectedExpiresAt = DateTime.now().add(const Duration(days: 7));
   final List<String> _units = const ['g', 'ml', 'ks', 'l', 'kg'];
 
   @override
   void initState() {
     super.initState();
-    _loadAllIngredients();
-    _loadUserIngredients();
   }
 
   @override
   void dispose() {
     _amountController.dispose();
+    _priceController.dispose();
     super.dispose();
-  }
-
-  //For search suggestions
-  Future<void> _loadAllIngredients() async {
-    final result = await supabase
-        .schema('public')
-        .from('ingredients')
-        .select('id, name, category, default_unit, search_aliases');
-
-    if (!mounted) return;
-    setState(() {
-      _allIngredients = List<Map<String, dynamic>>.from(result)
-          .map((e) => Ingredient.fromJson(e))
-          .where((ingredient) => ingredient.name.isNotEmpty)
-          .toList();
-    });
-  }
-
-  Future<void> _loadUserIngredients() async {
-    final result = await supabase
-        .schema('public')
-        .from('user_pantry')
-        .select(
-          'id, amount, unit, ingredients (id, name, category, default_unit, search_aliases)',
-        )
-        .eq('user_id', supabase.auth.currentUser!.id);
-
-    if (!mounted) return;
-    setState(() {
-      _userIngredients = List<Map<String, dynamic>>.from(result)
-          .map((e) => UserIngredient.fromJson(e))
-          .toList();
-    });
-  }
-
-  List<Ingredient> _filterIngredientNames(String query) {
-    if (query.isEmpty) {
-      return _allIngredients.take(5).toList(); // Return first 5 items if no match
-    }
-
-    final normalizedQuery = removeDiacritics(query).toLowerCase();
-
-    return _allIngredients
-        .where(
-          (ingredient) =>
-              removeDiacritics(ingredient.name)
-                  .toLowerCase()
-                  .contains(normalizedQuery) ||
-              ingredient.searchAliases.any(
-                (alias) => removeDiacritics(alias)
-                    .toLowerCase()
-                    .contains(normalizedQuery),
-              ),
-        )
-        .take(5)
-        .toList();
   }
 
   Future<void> _addIngredient() async {
@@ -104,7 +45,8 @@ class _FridgePageState extends State<FridgePage> {
     final amountText = _amountController.text.trim();
     if (amountText.isEmpty) return;
 
-    final amount = double.tryParse(amountText);
+    final normalizedAmountText = amountText.replaceAll(',', '.');
+    final amount = double.tryParse(normalizedAmountText);
 
     if (amount == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -115,85 +57,82 @@ class _FridgePageState extends State<FridgePage> {
       return;
     }
 
+    final priceText = _priceController.text.trim();
+    if (priceText.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a price.')),
+      );
+      return;
+    }
+
+    final normalizedPrice = priceText.replaceAll(',', '.');
+    final price = double.tryParse(normalizedPrice);
+    if (price == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid number for price.')),
+      );
+      return;
+    }
+
     try {
-      await supabase.schema('public').from('user_pantry').insert({
-        'ingredient_id': pending.id,
-        'amount': amount,
-        'unit': _selectedUnit
-        // 'user_id': auth.uid() default
-      });
+      await ref
+          .read(fridgeViewModelProvider.notifier)
+          .addIngredientToPantry(
+            ingredientId: pending.id,
+            amount: amount,
+            unit: _selectedUnit,
+            price: price,
+            expiresAt: _selectedExpiresAt,
+            isDiscounted: false,
+          );
 
       if (!mounted) return;
       setState(() => _selectedIngredient = null);
-      _loadUserIngredients(); // Refresh the list after adding
+
+      _amountController.clear();
+      _priceController.clear();
+      _selectedExpiresAt = DateTime.now().add(const Duration(days: 7));
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Ingredient added successfully!')),
       );
-    } on PostgrestException catch (e) {
+    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding ingredient: ${e.message}')),
+        SnackBar(content: Text('Error adding ingredient: $e')),
       );
     }
   }
 
   Future<void> _removeIngredient(String userIngredientId) async {
     try {
-      await supabase
-          .schema('public')
-          .from('user_pantry')
-          .delete()
-          .eq('id', userIngredientId);
-      if (!mounted) return;
-      setState(() {
-        _userIngredients.removeWhere((e) => e.id == userIngredientId);
-      });
-    } on PostgrestException catch (e) {
+      await ref
+          .read(fridgeViewModelProvider.notifier)
+          .deleteIngredientFromPantry(userIngredientId);
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error removing ingredient: ${e.message}')),
+        SnackBar(content: Text('Error removing ingredient: $e')),
       );
     }
   }
 
-  Future<void> _updateIngredientAmountOrUnit(
-    String userIngredientId,
-    double? newAmount,
-    String? newUnit,
-  ) async {
-    if (newAmount == null && newUnit == null) return;
-
-    final updateData = <String, dynamic>{};
-    if (newAmount != null) updateData['amount'] = newAmount;
-    if (newUnit != null) updateData['unit'] = newUnit;
-
+  Future<void> _updateUserIngredient(UserIngredient updated) async {
     try {
-      await supabase
-          .schema('public')
-          .from('user_pantry')
-          .update(updateData)
-          .eq('id', userIngredientId);
-      if (!mounted) return;
-      setState(() {
-        final index = _userIngredients.indexWhere((e) => e.id == userIngredientId);
-        if (index != -1) {
-          final existing = _userIngredients[index];
-          _userIngredients[index] = existing.copyWith(
-            amount: newAmount ?? existing.amount,
-            unit: newUnit ?? existing.unit,
-          );
-        }
-      });
-    } on PostgrestException catch (e) {
+      await ref
+          .read(fridgeViewModelProvider.notifier)
+          .updateUserIngredient(updated);
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error updating ingredient: ${e.message}')),
+        SnackBar(content: Text('Error updating ingredient: $e')),
       );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final pantryAsync = ref.watch(fridgeViewModelProvider);
+
     return Scaffold(
       appBar: AppBar(title: const Text('Moje lednice')),
       body: Column(
@@ -213,22 +152,41 @@ class _FridgePageState extends State<FridgePage> {
               );
             },
             suggestionsBuilder: (context, controller) {
-              final suggestions = _filterIngredientNames(controller.text);
-              return suggestions.map((suggestion) {
-                return ListTile(
-                  title: Text(suggestion.name),
-                  onTap: () {
-                    controller.closeView(suggestion.name);
-                    FocusScope.of(context).unfocus();
+              final ingredientsAsync =
+                  ref.watch(ingredientSuggestionsProvider(controller.text));
 
-                    setState(() {
-                      _selectedIngredient = suggestion;
-                      _amountController.clear();
-                      _selectedUnit = suggestion.defaultUnit;
-                    });
-                  },
-                );
-              }).toList();
+              return ingredientsAsync.when(
+                data: (suggestions) {
+                  return suggestions.map((suggestion) {
+                    return ListTile(
+                      title: Text(suggestion.name),
+                      onTap: () {
+                        controller.closeView(suggestion.name);
+                        FocusScope.of(context).unfocus();
+
+                        setState(() {
+                          _selectedIngredient = suggestion;
+                          _amountController.clear();
+                          _priceController.clear();
+                          _selectedUnit = suggestion.defaultUnit;
+                          _selectedExpiresAt =
+                              DateTime.now().add(const Duration(days: 7));
+                        });
+                      },
+                    );
+                  }).toList();
+                },
+                loading: () => const [
+                  ListTile(
+                    title: Text('Načítám ingredience...'),
+                  ),
+                ],
+                error: (error, _) => [
+                  ListTile(
+                    title: Text('Chyba při načítání: $error'),
+                  ),
+                ],
+              );
             },
           ),
           if (_selectedIngredient != null)
@@ -242,15 +200,24 @@ class _FridgePageState extends State<FridgePage> {
                   setState(() => _selectedUnit = newUnit);
                 }
               },
+              priceController: _priceController,
+              expiresAt: _selectedExpiresAt,
+              onExpiresAtChanged: (d) => setState(() => _selectedExpiresAt = d),
               onConfirm: _addIngredient,
               confirmLabel: 'Add',
             ),
           Expanded(
-            child: IngredientsList(
-              items: _userIngredients,
-              units: _units,
-              onRemove: _removeIngredient,
-              onUpdate: _updateIngredientAmountOrUnit,
+            child: pantryAsync.when(
+              data: (items) => IngredientsList(
+                items: items,
+                units: _units,
+                onRemove: _removeIngredient,
+                onUpdate: _updateUserIngredient,
+              ),
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Center(
+                child: Text('Chyba při načítání lednice: $error'),
+              ),
             ),
           ),
         ],
@@ -293,7 +260,7 @@ class IngredientsList extends StatelessWidget {
   final List<UserIngredient> _items;
   final List<String> units;
   final Future<void> Function(String) onRemove;
-  final Future<void> Function(String, double?, String?) onUpdate;
+  final Future<void> Function(UserIngredient) onUpdate;
 
   @override
   Widget build(BuildContext context) {
@@ -326,10 +293,13 @@ class ViewIngredientCard extends StatelessWidget {
   final UserIngredient item;
   final Future<dynamic> Function(String) onRemove;
   final List<String> units;
-  final Future<dynamic> Function(String, double?, String?) onUpdate;
+  final Future<dynamic> Function(UserIngredient) onUpdate;
 
   @override
   Widget build(BuildContext context) {
+    final dateText = MaterialLocalizations.of(context)
+        .formatShortDate(item.expiresAt.toLocal());
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Padding(
@@ -341,7 +311,9 @@ class ViewIngredientCard extends StatelessWidget {
             icon: const Icon(Icons.delete),
             onPressed: () => onRemove(item.id),
           ),
-          subtitle: Text('${item.amount} ${item.unit}'),
+          subtitle: Text(
+            '${item.amount} ${item.unit}  •  ${item.price}  •  $dateText',
+          ),
           onTap: () async {
             await showModalBottomSheet<void>(
               context: context,
@@ -371,7 +343,7 @@ class BottomSheetUpdateIngredient extends StatefulWidget {
 
   final UserIngredient item;
   final List<String> units;
-  final Future<dynamic> Function(String, double?, String?) onUpdate;
+  final Future<dynamic> Function(UserIngredient) onUpdate;
 
   @override
   State<BottomSheetUpdateIngredient> createState() =>
@@ -381,22 +353,31 @@ class BottomSheetUpdateIngredient extends StatefulWidget {
 class _BottomSheetUpdateIngredientState
     extends State<BottomSheetUpdateIngredient> {
   late final TextEditingController _amountController;
+  late final TextEditingController _priceController;
   late String _selectedUnit;
+  late DateTime _selectedExpiresAt;
 
   @override
   void initState() {
     super.initState();
     _selectedUnit = widget.item.unit;
+    _selectedExpiresAt = widget.item.expiresAt;
     _amountController = TextEditingController(
       text: widget.item.amount % 1 == 0
           ? widget.item.amount.toInt().toString()
           : widget.item.amount.toString(),
+    );
+    _priceController = TextEditingController(
+      text: widget.item.price % 1 == 0
+          ? widget.item.price.toInt().toString()
+          : widget.item.price.toString(),
     );
   }
 
   @override
   void dispose() {
     _amountController.dispose();
+    _priceController.dispose();
     super.dispose();
   }
 
@@ -417,10 +398,14 @@ class _BottomSheetUpdateIngredientState
             if (newUnit == null) return;
             setState(() => _selectedUnit = newUnit);
           },
+          priceController: _priceController,
+          expiresAt: _selectedExpiresAt,
+          onExpiresAtChanged: (d) => setState(() => _selectedExpiresAt = d),
           confirmLabel: 'Uložit',
           onConfirm: () async {
             final text = _amountController.text.trim();
-            final newAmount = double.tryParse(text);
+            final normalizedText = text.replaceAll(',', '.');
+            final newAmount = double.tryParse(normalizedText);
             if (newAmount == null) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Zadejte platné číslo.')),
@@ -428,7 +413,24 @@ class _BottomSheetUpdateIngredientState
               return;
             }
 
-            await widget.onUpdate(widget.item.id, newAmount, _selectedUnit);
+            final rawPrice = _priceController.text.trim();
+            final normalizedPrice = rawPrice.replaceAll(',', '.');
+            final newPrice = double.tryParse(normalizedPrice);
+            if (newPrice == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Zadejte platnou cenu.')),
+              );
+              return;
+            }
+
+            await widget.onUpdate(
+              widget.item.copyWith(
+                amount: newAmount,
+                unit: _selectedUnit,
+                price: newPrice,
+                expiresAt: _selectedExpiresAt,
+              ),
+            );
 
             if (context.mounted) {
               Navigator.of(context).pop();

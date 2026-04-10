@@ -1,22 +1,22 @@
 import 'package:flutter/material.dart';
 
-import 'package:kuchtik/features/pantry/presentation/fridge/fridge_page.dart';
-import 'package:kuchtik/features/recipes/presentation/recipes/home_page.dart';
+import 'package:kuchtik/features/pantry/ui/fridge_screen.dart';
+import 'package:kuchtik/features/recipes/ui/home_screen.dart';
 
-class MainPage extends StatefulWidget {
-  const MainPage({super.key, required this.title});
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key, required this.title});
 
   final String title;
 
   @override
-  State<MainPage> createState() => _MainPageState();
+  State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 1;
 
   final List<Widget> _pages = [
-    const FridgePage(),
+    const FridgeScreen(),
     const HomeScreen(),
     const Center(child: Text('My Recipes Page')),
   ];
@@ -31,12 +31,18 @@ class _MainPageState extends State<MainPage> {
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomAppBar(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            IconButton(
-              icon: const Icon(Icons.kitchen),
-              onPressed: () {
+        shape: const CircularNotchedRectangle(),
+        color: Theme.of(context).colorScheme.primary,
+        child: IconTheme(
+          data: IconThemeData(
+            color: Theme.of(context).colorScheme.onPrimary,
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.kitchen),
+                onPressed: () {
                 setState(() {
                   _selectedIndex = 0;
                 });
@@ -60,7 +66,8 @@ class _MainPageState extends State<MainPage> {
             ),
           ],
         ),
-      ),
+      )
+    )
     );
-  }
+}
 }
