@@ -79,6 +79,7 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
           .read(fridgeViewModelProvider.notifier)
           .addIngredientToPantry(
             ingredientId: pending.id,
+            ingredientName: pending.name,
             amount: amount,
             unit: _selectedUnit,
             price: price,

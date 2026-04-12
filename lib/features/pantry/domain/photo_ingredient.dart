@@ -22,7 +22,7 @@ class PhotoIngredient {
       ingredient: Ingredient.fromJson(json['ingredient']), //Table ingredients
       amount: (json['amount'] as num).toDouble(),
       unit: json['unit'],
-      price: (json['price'] as num).toDouble(),
+      price: json['price'] != null ? (json['price'] as num).toDouble() : 0, //Can return null if not sure
       expiresInDays: json['expires_in_days'] as int,
       isDiscounted: json['is_discounted'] as bool,
     );

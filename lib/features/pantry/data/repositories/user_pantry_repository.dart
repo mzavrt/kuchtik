@@ -24,7 +24,7 @@ class UserPantryRepository {
     return response.map((json) => UserIngredient.fromJson(json)).toList();
   }
 
-  Future<void> addIngredientToPantry({
+  Future<String> addIngredientToPantry({
     required String ingredientId,
     required double amount,
     required String unit,
@@ -32,7 +32,7 @@ class UserPantryRepository {
     required DateTime expiresAt,
     bool isDiscounted = false,
   }) async {
-    await _supabaseClient.from('user_pantry').insert({
+    final response = await _supabaseClient.from('user_pantry').insert({
       //'user_id': _supabaseClient.auth.currentUser!.id, default value in supabase
       'ingredient_id': ingredientId,
       'amount': amount,
@@ -40,7 +40,12 @@ class UserPantryRepository {
       'price_paid': price,
       'expires_at': expiresAt.toIso8601String(),
       'is_discounted': isDiscounted,
-    });
+    })
+    .select('id') // Return the inserted record's ID
+    .single(); // Get the single inserted record
+  
+    return response['id'] as String; // Return the UUID of the newly added ingredient
+
   }
 
   Future<void> addIngredientsToPantry(List<Map<String, Object?>> items) async {

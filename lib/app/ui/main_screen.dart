@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kuchtik/features/pantry/ui/fridge_screen.dart';
 import 'package:kuchtik/features/recipes/ui/home_screen.dart';
+import 'package:kuchtik/core/services/notification_service.dart';
 
-class MainScreen extends StatefulWidget {
+class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, required this.title});
 
   final String title;
 
   @override
-  State<MainScreen> createState() => _MainScreenState();
+  ConsumerState<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends ConsumerState<MainScreen> {
   int _selectedIndex = 1;
 
   final List<Widget> _pages = [
@@ -20,6 +22,15 @@ class _MainScreenState extends State<MainScreen> {
     const HomeScreen(),
     const Center(child: Text('My Recipes Page')),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+
+    Future.microtask(() {
+      ref.read(notificationServiceProvider).requestPermissions();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

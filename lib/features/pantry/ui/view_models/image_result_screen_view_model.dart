@@ -2,11 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:kuchtik/core/extensions/string_extension.dart';
 
 import 'package:kuchtik/features/pantry/data/repositories/image_scan_repository.dart';
 import 'package:kuchtik/features/pantry/domain/photo_ingredient.dart';
 import 'package:kuchtik/features/pantry/data/repositories/user_pantry_repository.dart';
 import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
+import 'package:kuchtik/core/services/notification_service.dart';
+import 'package:kuchtik/core/utils/notification_strings.dart';
 
 
 
@@ -21,6 +24,9 @@ class ImageResultScreenViewModel extends AsyncNotifier<List<PhotoIngredient>> {
 
   UserPantryRepository get _userPantryRepository =>
       ref.read(userPantryRepositoryProvider);
+
+  NotificationService get _notificationService =>
+      ref.read(notificationServiceProvider);
 
   @override
   Future<List<PhotoIngredient>> build() async => const [];
@@ -96,9 +102,19 @@ class ImageResultScreenViewModel extends AsyncNotifier<List<PhotoIngredient>> {
           'expires_at': expiresAts[i].toIso8601String(),
           'is_discounted': ingredients[i].isDiscounted,
         });
+
+        final ingredientName = ingredients[i].ingredient.name;
+
+        _notificationService.scheduleNotification(id: ingredients[i].ingredient.id.createNotificationIdFromUuid(),
+          title: NotificationStrings.expiringTitle(price), 
+          body: NotificationStrings.expiringBody(ingredientName), 
+          scheduledTime: DateTime.now().add(const Duration(seconds: 30)));
+
       }
 
       await _userPantryRepository.addIngredientsToPantry(items);
+
+
 
       // Ensure the pantry list is refreshed when the user navigates back.
       ref.invalidate(fridgeViewModelProvider);
