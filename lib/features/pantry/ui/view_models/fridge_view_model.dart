@@ -6,6 +6,7 @@ import 'package:kuchtik/core/extensions/string_extension.dart';
 import 'package:kuchtik/features/pantry/data/repositories/ingredients_repository.dart';
 import 'package:kuchtik/features/pantry/data/repositories/user_pantry_repository.dart';
 import 'package:kuchtik/features/pantry/domain/ingredient.dart';
+import 'package:kuchtik/features/pantry/domain/pantry_deduction.dart';
 import 'package:kuchtik/features/pantry/domain/user_ingredient.dart';
 import 'package:kuchtik/core/services/notification_service.dart';
 import 'package:kuchtik/core/utils/notification_strings.dart';
@@ -94,6 +95,78 @@ class FridgeViewModel extends AsyncNotifier<List<UserIngredient>> {
       state = AsyncError(e, st);
       rethrow;
     }
+  }
+
+  /// Applies deductions to the current pantry state without calling Supabase.
+  ///
+  /// Returns a snapshot of the previous pantry list for rollback.
+  List<UserIngredient> applyLocalDeductions(List<PantryDeduction> deductions) {
+    final previous = state.asData?.value;
+    if (previous == null) {
+      throw StateError('Pantry is not loaded yet.');
+    }
+
+    if (deductions.isEmpty) {
+      return List<UserIngredient>.unmodifiable(previous);
+    }
+
+    final next = previous.toList(growable: true);
+
+    // Group deductions by ingredientId + unit
+    final Map<String, double> toDeduct = {};
+    for (final d in deductions) {
+      final amount = d.amount;
+      if (amount <= 0) continue;
+      final key = '${d.ingredientId}::${d.unit}';
+      toDeduct[key] = (toDeduct[key] ?? 0) + amount;
+    }
+
+    const epsilon = 1e-9;
+
+    for (final entry in toDeduct.entries) {
+      final parts = entry.key.split('::');
+      if (parts.length != 2) continue;
+      final ingredientId = parts[0];
+      final unit = parts[1];
+      var remaining = entry.value;
+      if (remaining <= 0) continue;
+
+      // Deduct from the soonest-expiring items first.
+      final candidates = next
+          .where(
+            (i) => i.ingredient.id == ingredientId && i.unit.trim() == unit.trim(),
+          )
+          .toList(growable: false)
+        ..sort((a, b) => a.expiresAt.compareTo(b.expiresAt));
+
+      for (final item in candidates) {
+        if (remaining <= epsilon) break;
+
+        final current = item.amount;
+        if (current <= epsilon) continue;
+
+        final deductNow = remaining < current ? remaining : current;
+        final updatedAmount = current - deductNow;
+        remaining -= deductNow;
+
+        final index = next.indexWhere((x) => x.id == item.id);
+        if (index == -1) continue;
+
+        if (updatedAmount <= epsilon) {
+          next.removeAt(index);
+        } else {
+          next[index] = next[index].copyWith(amount: updatedAmount);
+        }
+      }
+    }
+
+    state = AsyncData(List<UserIngredient>.unmodifiable(next));
+    return List<UserIngredient>.unmodifiable(previous);
+  }
+
+  /// Restores a previously captured pantry snapshot (rollback).
+  void restoreLocalPantry(List<UserIngredient> snapshot) {
+    state = AsyncData(List<UserIngredient>.unmodifiable(snapshot));
   }
 
 }

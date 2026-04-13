@@ -8,11 +8,9 @@ import 'package:kuchtik/features/pantry/ui/widgets/ingredient_card.dart';
 import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
 
 //TODO: Ikony
-//TODO: Update mnoštví surovin
-//
 
 class FridgeScreen extends ConsumerStatefulWidget {
-  const FridgeScreen({Key? key}) : super(key: key);
+  const FridgeScreen({super.key});
 
   @override
   ConsumerState<FridgeScreen> createState() => _FridgeScreenState();

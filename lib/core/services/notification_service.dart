@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -58,7 +59,7 @@ class NotificationService {
     
     //If the scheduled time is in the past, we should not schedule the notification.
     if (scheduledTime.isBefore(DateTime.now())) {
-      print('Ignoruji notifikaci do minulosti pro ID: $id');
+      debugPrint('Ignoruji notifikaci do minulosti pro ID: $id');
       return;
     }
 

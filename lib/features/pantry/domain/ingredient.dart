@@ -4,6 +4,7 @@ class Ingredient {
   final String category;
   final String defaultUnit;
   final List<String> searchAliases;
+  final double? densityGml;
 
   Ingredient({
     required this.id,
@@ -11,6 +12,7 @@ class Ingredient {
     required this.category,
     required this.defaultUnit,
     required this.searchAliases,
+    required this.densityGml,
   });
 
   factory Ingredient.fromJson(Map<String, dynamic> json) {
@@ -20,6 +22,7 @@ class Ingredient {
       category: json['category'] as String,
       defaultUnit: json['default_unit'] as String,
       searchAliases: List<String>.from(json['search_aliases'] as List<dynamic>),
+      densityGml: (json['density_g_ml'] as num?)?.toDouble(),
     );
   }
 }

@@ -2,7 +2,7 @@ extension StringExtension on String {
 
   int createNotificationIdFromUuid() {
     // Remove hyphens just to be safe
-    final cleanUuid = this.replaceAll('-', '');
+    final cleanUuid = replaceAll('-', '');
 
     // Take the first 7 characters 
     final hexSubstring = cleanUuid.substring(0, 7);

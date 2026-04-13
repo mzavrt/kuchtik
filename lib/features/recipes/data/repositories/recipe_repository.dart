@@ -51,7 +51,9 @@ final SupabaseClient supabase;
           amount,
           unit,
           ingredients!inner (
-            name 
+            id,
+            name,
+            density_g_ml
           )
         )
       ''') // Ensure 'recipe_ingredients' and 'name' match your exact DB column/table names

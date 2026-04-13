@@ -4,6 +4,10 @@ import 'package:cached_network_image/cached_network_image.dart';
 
 import 'package:kuchtik/features/recipes/domain/recipe_ingredient.dart';
 import 'package:kuchtik/features/recipes/ui/view_models/recipe_detail_view_model.dart';
+import 'package:kuchtik/features/recipes/ui/view_models/cook_recipe_view_model.dart';
+import 'package:kuchtik/features/recipes/ui/widgets/cook_recipe_sheet.dart';
+import 'package:kuchtik/features/pantry/domain/pantry_deduction.dart';
+import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
 
 class RecipeDetailScreen extends ConsumerWidget {
   final String recipeId;
@@ -44,6 +48,7 @@ class RecipeDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detailAsync = ref.watch(recipeDetailViewModelProvider(recipeId));
+    final cookAsync = ref.watch(cookRecipeViewModelProvider);
     final appBarTitle = detailAsync.maybeWhen(
       data: (recipe) => recipe.title,
       orElse: () => null,
@@ -52,6 +57,67 @@ class RecipeDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(appBarTitle?.isNotEmpty == true ? appBarTitle! : 'Recipe'),
+      ),
+      bottomNavigationBar: detailAsync.maybeWhen(
+        data: (recipe) {
+          return SafeArea(
+            minimum: const EdgeInsets.all(16),
+            child: SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                
+                onPressed: cookAsync.isLoading
+                    ? null
+                    : () async {
+                        final pantry = ref.read(fridgeViewModelProvider).asData?.value;
+                        if (pantry == null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Načítám lednici… zkuste to za chvíli.'),
+                            ),
+                          );
+                          return;
+                        }
+
+                        final deductions =
+                            await showModalBottomSheet<List<PantryDeduction>>(
+                          context: context,
+                          isScrollControlled: true,
+                          useSafeArea: false,
+                          builder: (context) {
+                            return CookRecipeSheet(
+                              recipe: recipe,
+                              pantryItems: pantry,
+                            );
+                          },
+                        );
+
+                        if (deductions == null) return;
+
+                        try {
+                          await ref
+                              .read(cookRecipeViewModelProvider.notifier)
+                              .cook(deductions: deductions);
+
+                          if (!context.mounted) return;
+                          Navigator.of(context).pop();
+                        } catch (e) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Chyba při odečtu surovin: $e',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                child: const Text('Uvařeno'),
+              ),
+            ),
+          );
+        },
+        orElse: () => null,
       ),
       body: detailAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
