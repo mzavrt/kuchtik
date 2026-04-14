@@ -1,17 +1,30 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:timezone/data/latest_all.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+
 
 class NotificationService {
  
   final _notificationsPlugin =
       FlutterLocalNotificationsPlugin();
 
+
+  bool get _notificationsEnabled {
+  if (kIsWeb) return false;
+  return defaultTargetPlatform == TargetPlatform.android ||
+         defaultTargetPlatform == TargetPlatform.iOS;
+}
   
   Future<void> init() async {
     
+    if (!_notificationsEnabled) {
+      return;
+    }
+
     tz.initializeTimeZones();
 
     const AndroidInitializationSettings androidSettings =
@@ -57,6 +70,10 @@ class NotificationService {
     required DateTime scheduledTime,
   }) async {
     
+    if (!_notificationsEnabled) {
+      return;
+    }
+
     //If the scheduled time is in the past, we should not schedule the notification.
     if (scheduledTime.isBefore(DateTime.now())) {
       debugPrint('Ignoruji notifikaci do minulosti pro ID: $id');
@@ -83,7 +100,7 @@ class NotificationService {
           interruptionLevel: InterruptionLevel.timeSensitive,
         ),
       ),
-      // Android 12+ vyžaduje specifikaci, jak přesný čas potřebujeme
+      //Android 12+ requires this to allow scheduling exact alarms, otherwise the system may delay the notification to save battery.
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
     
     );
@@ -91,6 +108,10 @@ class NotificationService {
 
   /// When user deletes an item, we should also cancel its notification to avoid confusion.
   Future<void> cancelNotification(int id) async {
+    if (!_notificationsEnabled) {
+      return;
+    }
+
     await _notificationsPlugin.cancel(id: id);
   }
 }

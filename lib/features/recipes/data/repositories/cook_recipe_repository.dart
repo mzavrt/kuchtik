@@ -11,10 +11,7 @@ class CookRecipeRepository {
 
   Future<void> cookWithDeductions({required List<PantryDeduction> deductions}) async {
     final payload = deductions.map((d) => d.toJson()).toList(growable: false);
-
-    // Expected Postgres RPC signature example:
-    //   cook_recipe(deductions jsonb)
-    // Where `deductions` is a JSON array of { ingredient_id, amount, unit }.
+    
     await _supabaseClient.rpc('cook_recipe', params: {'deductions': payload});
   }
 }

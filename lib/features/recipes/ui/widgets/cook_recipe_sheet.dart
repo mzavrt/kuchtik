@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kuchtik/features/pantry/domain/pantry_deduction.dart';
 import 'package:kuchtik/features/pantry/domain/user_ingredient.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_detail.dart';
-import 'package:kuchtik/features/recipes/ui/view_models/recipe_checkout_line_state.dart';
+import 'package:kuchtik/features/recipes/ui/states/recipe_checkout_line_state.dart';
 
 class CookRecipeSheet extends ConsumerStatefulWidget {
   const CookRecipeSheet({
