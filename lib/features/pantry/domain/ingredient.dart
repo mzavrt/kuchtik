@@ -5,6 +5,8 @@ class Ingredient {
   final String defaultUnit;
   final List<String> searchAliases;
   final double? densityGml;
+  final String? emoji;
+  final bool isStaple;
 
   Ingredient({
     required this.id,
@@ -13,6 +15,8 @@ class Ingredient {
     required this.defaultUnit,
     required this.searchAliases,
     required this.densityGml,
+    required this.emoji,
+    required this.isStaple,
   });
 
   factory Ingredient.fromJson(Map<String, dynamic> json) {
@@ -23,6 +27,8 @@ class Ingredient {
       defaultUnit: json['default_unit'] as String,
       searchAliases: List<String>.from(json['search_aliases'] as List<dynamic>),
       densityGml: (json['density_g_ml'] as num?)?.toDouble(),
+      emoji: json['emoji'] as String?,
+      isStaple: (json['is_staple'] as bool?) ?? false,
     );
   }
 }

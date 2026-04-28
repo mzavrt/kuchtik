@@ -17,7 +17,7 @@ class UserPantryRepository {
         .from('user_pantry')
         .select('''
            id, amount, unit, price_paid, expires_at, is_discounted,
-          ingredients(id, name, category, default_unit, search_aliases, density_g_ml)''',
+          ingredients(id, name, category, default_unit, search_aliases, density_g_ml, emoji, is_staple)''',
         )
         .eq('user_id', _supabaseClient.auth.currentUser!.id);
 

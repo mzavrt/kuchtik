@@ -15,7 +15,9 @@ class IngredientsRepository {
     final response = await _supabaseClient
         .schema('public')
         .from('ingredients')
-        .select('id, name, category, default_unit, search_aliases, density_g_ml');
+        .select(
+          'id, name, category, default_unit, search_aliases, density_g_ml, emoji, is_staple',
+        );
 
     return response
         .map((json) => Ingredient.fromJson(json))

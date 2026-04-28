@@ -135,7 +135,8 @@ class RecipeRepository {
           image_url,
           tags,
           recipe_ingredient!inner(
-            ingredient_id
+            ingredient_id,
+            ingredients(id, name)
           )
           ''')
         .eq('is_public', true)
@@ -252,13 +253,12 @@ class RecipeRepository {
           )
         )
       ''',
-        ) // Ensure 'recipe_ingredients' and 'name' match your exact DB column/table names
+        )
         .eq('id', recipeId)
         .single();
 
     final rawPath = json['image_url'] as String?;
 
-    // Need to resolve the full URL using Supabase Storage if the path is not null
     String? fullUrl;
     if (rawPath != null && rawPath.isNotEmpty) {
       fullUrl = supabase.storage.from('images').getPublicUrl(rawPath);

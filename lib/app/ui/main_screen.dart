@@ -38,47 +38,34 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        title: const Text('Kuchtik'),
+        title: Text(widget.title),
       ),
       body: _pages[_selectedIndex],
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        color: Theme.of(context).colorScheme.primary,
-        child: IconTheme(
-          data: IconThemeData(
-            color: Theme.of(context).colorScheme.onPrimary,
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.kitchen_outlined),
+            selectedIcon: Icon(Icons.kitchen),
+            label: 'Moje zásoby',
           ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.kitchen),
-                onPressed: () {
-                setState(() {
-                  _selectedIndex = 0;
-                });
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.home),
-              onPressed: () {
-                setState(() {
-                  _selectedIndex = 1;
-                });
-              },
-            ),
-            IconButton(
-              icon: const Icon(Icons.book),
-              onPressed: () {
-                setState(() {
-                  _selectedIndex = 2;
-                });
-              },
-            ),
-          ],
-        ),
-      )
-    )
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Domů',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.book_outlined),
+            selectedIcon: Icon(Icons.book),
+            label: 'Moje recepty',
+          ),
+        ],
+      ),
     );
-}
+  }
 }

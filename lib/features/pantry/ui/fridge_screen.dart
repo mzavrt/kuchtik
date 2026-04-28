@@ -7,8 +7,6 @@ import 'package:kuchtik/features/pantry/ui/widgets/add_ingredient_sheet.dart';
 import 'package:kuchtik/features/pantry/ui/widgets/ingredient_card.dart';
 import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
 
-//TODO: Ikony
-
 class FridgeScreen extends ConsumerStatefulWidget {
   const FridgeScreen({super.key});
 
@@ -23,6 +21,14 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
   late String _selectedUnit;
   DateTime _selectedExpiresAt = DateTime.now().add(const Duration(days: 7));
   final List<String> _units = const ['g', 'ml', 'ks', 'l', 'kg'];
+
+  String _labelForIngredient(Ingredient ingredient) {
+    final emoji = (ingredient.emoji ?? '').trim();
+    final name = ingredient.name.trim();
+    if (emoji.isEmpty) return name;
+    if (name.isEmpty) return emoji;
+    return '$emoji $name';
+  }
 
   @override
   void initState() {
@@ -158,7 +164,7 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
                 data: (suggestions) {
                   return suggestions.map((suggestion) {
                     return ListTile(
-                      title: Text(suggestion.name),
+                      title: Text(_labelForIngredient(suggestion)),
                       onTap: () {
                         controller.closeView(suggestion.name);
                         FocusScope.of(context).unfocus();
@@ -190,7 +196,7 @@ class _FridgeScreenState extends ConsumerState<FridgeScreen> {
           ),
           if (_selectedIngredient != null)
             IngredientCard(
-              title: _selectedIngredient!.name,
+              title: _labelForIngredient(_selectedIngredient!),
               amountController: _amountController,
               unit: _selectedUnit,
               units: _units,
@@ -299,12 +305,20 @@ class ViewIngredientCard extends StatelessWidget {
     final dateText = MaterialLocalizations.of(context)
         .formatShortDate(item.expiresAt.toLocal());
 
+    final emoji = (item.ingredient.emoji ?? '').trim();
+    final hasEmoji = emoji.isNotEmpty;
+  
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: ListTile(
-          leading: const Icon(Icons.kitchen),
+          leading: hasEmoji
+              ? Text(
+                  emoji,
+                  style: Theme.of(context).textTheme.headlineSmall,
+                )
+              : const Icon(Icons.kitchen),
           title: Text(item.ingredient.name),
           trailing: IconButton(
             icon: const Icon(Icons.delete),
@@ -389,7 +403,13 @@ class _BottomSheetUpdateIngredientState
       child: SafeArea(
         minimum: const EdgeInsets.all(16),
         child: IngredientCard(
-          title: widget.item.ingredient.name,
+          title: (() {
+            final emoji = (widget.item.ingredient.emoji ?? '').trim();
+            final name = widget.item.ingredient.name.trim();
+            if (emoji.isEmpty) return name;
+            if (name.isEmpty) return emoji;
+            return '$emoji $name';
+          })(),
           amountController: _amountController,
           unit: _selectedUnit,
           units: widget.units,
