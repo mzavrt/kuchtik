@@ -16,8 +16,8 @@ class UserPantryRepository {
     final response = await _supabaseClient
         .from('user_pantry')
         .select('''
-           id, amount, unit, price_paid, expires_at, is_discounted,
-          ingredients(id, name, category, default_unit, search_aliases, density_g_ml, emoji, is_staple)''',
+           id, amount, unit, price_paid, expires_at, is_discounted, actual_value_per_piece,
+          ingredients(id, name, category, default_unit, search_aliases, emoji, is_staple, measurement_type, est_value, est_unit, est_price)''',
         )
         .eq('user_id', _supabaseClient.auth.currentUser!.id);
 
@@ -67,6 +67,25 @@ class UserPantryRepository {
       'price_paid': price,
       'expires_at': expiresAt.toIso8601String(),
       'is_discounted': isDiscounted,
+    }).eq('id', id);
+  }
+
+  Future<void> updatePantryItem(
+    String id, {
+    double? amount,
+    double? pricePaid,
+    DateTime? expiresAt,
+    bool? isDiscounted,
+    double? actualValuePerPiece,
+  }) async {
+    await _supabaseClient.from('user_pantry').update({
+      ...?(amount == null ? null : {'amount': amount}),
+      // These can be intentionally nullable, so callers should always pass them
+      // when they want to change/clear them.
+      'price_paid': pricePaid,
+      'expires_at': expiresAt?.toIso8601String(),
+      ...?(isDiscounted == null ? null : {'is_discounted': isDiscounted}),
+      'actual_value_per_piece': actualValuePerPiece,
     }).eq('id', id);
   }
 

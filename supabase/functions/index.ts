@@ -102,7 +102,7 @@ POŽADOVANÝ VÝSTUP (STRIKTNÍ JSON):
 
             const { data, error } = await supabaseClient
                 .from('ingredients')
-                .select('id, name, category, default_unit, search_aliases')
+                .select('id, name, category, default_unit, search_aliases, emoji, is_staple, measurement_type, est_value, est_unit, est_price')
                 .textSearch('fts', q)
 
             returnJson.push(data);

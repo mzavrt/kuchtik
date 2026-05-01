@@ -68,13 +68,14 @@ class FridgeViewModel extends AsyncNotifier<List<UserIngredient>> {
   Future<void> updateUserIngredient(UserIngredient updated) async {
     state = const AsyncLoading<List<UserIngredient>>();
     try {
-      await _userPantryRepository.updateUserIngredient(
-        id: updated.id,
+      await _userPantryRepository.updatePantryItem(
+        updated.id,
         amount: updated.amount,
-        unit: updated.unit,
-        price: updated.price,
+        pricePaid: updated.pricePaid,
         expiresAt: updated.expiresAt,
         isDiscounted: updated.isDiscounted,
+        actualValuePerPiece: updated.actualValuePerPiece,
+      
       );
       state = AsyncData(await loadUserPantry());
     } catch (e, st) {
@@ -137,7 +138,11 @@ class FridgeViewModel extends AsyncNotifier<List<UserIngredient>> {
             (i) => i.ingredient.id == ingredientId && i.unit.trim() == unit.trim(),
           )
           .toList(growable: false)
-        ..sort((a, b) => a.expiresAt.compareTo(b.expiresAt));
+        ..sort((a, b) {
+          final aKey = a.expiresAt ?? DateTime(9999);
+          final bKey = b.expiresAt ?? DateTime(9999);
+          return aKey.compareTo(bKey);
+        });
 
       for (final item in candidates) {
         if (remaining <= epsilon) break;

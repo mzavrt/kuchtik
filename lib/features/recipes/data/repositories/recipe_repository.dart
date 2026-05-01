@@ -68,7 +68,7 @@ class RecipeRepository {
           tags,
           recipe_ingredient(
             ingredient_id,
-            ingredients(id, name)
+              ingredients(id, name)
           )
           ''')
         .eq('is_public', true)
@@ -136,7 +136,7 @@ class RecipeRepository {
           tags,
           recipe_ingredient!inner(
             ingredient_id,
-            ingredients(id, name)
+              ingredients(id, name)
           )
           ''')
         .eq('is_public', true)
@@ -248,8 +248,7 @@ class RecipeRepository {
           unit,
           ingredients!inner (
             id,
-            name,
-            density_g_ml
+            name
           )
         )
       ''',

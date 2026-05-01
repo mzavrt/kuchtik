@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:kuchtik/features/pantry/ui/fridge_screen.dart';
+import 'package:kuchtik/features/pantry/ui/pantry_screen.dart';
 import 'package:kuchtik/core/services/notification_service.dart';
 import 'package:kuchtik/features/dashboard/ui/dashboard_screen.dart';
 
@@ -18,7 +18,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   int _selectedIndex = 1;
 
   final List<Widget> _pages = [
-    const FridgeScreen(),
+    const PantryScreen(),
     const DashboardScreen(),
     const Center(child: Text('My Recipes Page')),
   ];

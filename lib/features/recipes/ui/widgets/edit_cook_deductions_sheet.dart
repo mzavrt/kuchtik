@@ -6,8 +6,8 @@ import 'package:kuchtik/features/pantry/domain/user_ingredient.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_detail.dart';
 import 'package:kuchtik/features/recipes/ui/states/recipe_checkout_line_state.dart';
 
-class CookRecipeSheet extends ConsumerStatefulWidget {
-  const CookRecipeSheet({
+class EditCookDeductionsSheet extends ConsumerStatefulWidget {
+  const EditCookDeductionsSheet({
     super.key,
     required this.recipe,
     required this.pantryItems,
@@ -17,7 +17,7 @@ class CookRecipeSheet extends ConsumerStatefulWidget {
   final List<UserIngredient> pantryItems;
 
   @override
-  ConsumerState<CookRecipeSheet> createState() => _CookRecipeSheetState();
+  ConsumerState<EditCookDeductionsSheet> createState() => _EditCookDeductionsSheetState();
 }
 
 class _CookLine {
@@ -28,7 +28,6 @@ class _CookLine {
     required this.requiredUnit,
     required this.pantryUnit,
     required this.pantryAmount,
-    required this.densityGml,
     required this.requiresText,
     required this.pantryText,
     required this.controller,
@@ -40,7 +39,6 @@ class _CookLine {
   final String requiredUnit;
   final String pantryUnit;
   final double pantryAmount;
-  final double? densityGml;
   final String requiresText;
   final String pantryText;
   final TextEditingController controller;
@@ -69,7 +67,7 @@ class _CookLine {
   }
 }
 
-class _CookRecipeSheetState extends ConsumerState<CookRecipeSheet> {
+class _EditCookDeductionsSheetState extends ConsumerState<EditCookDeductionsSheet> {
   late final List<_CookLine> _lines;
 
   @override
@@ -89,11 +87,6 @@ class _CookRecipeSheetState extends ConsumerState<CookRecipeSheet> {
           .where((p) => p.ingredient.id == ingredientId)
           .toList(growable: false);
 
-      final densityGml = ri.densityGml ??
-          (pantryForIngredient.isNotEmpty
-              ? pantryForIngredient.first.ingredient.densityGml
-              : null);
-
       if (pantryForIngredient.isEmpty) {
         // No pantry stock: still show a line (max=0) so user can confirm.
         final pantryUnit = requiredUnit;
@@ -102,7 +95,7 @@ class _CookRecipeSheetState extends ConsumerState<CookRecipeSheet> {
           recipeUnit: requiredUnit,
           pantryAmount: 0,
           pantryUnit: pantryUnit,
-          densityGml: densityGml,
+          densityGml: null,
         );
 
         final controller = TextEditingController(text: '0');
@@ -115,7 +108,6 @@ class _CookRecipeSheetState extends ConsumerState<CookRecipeSheet> {
             requiredUnit: requiredUnit,
             pantryUnit: pantryUnit,
             pantryAmount: 0,
-            densityGml: densityGml,
             requiresText: lineState.requiresText,
             pantryText: lineState.pantryText,
             controller: controller,
@@ -141,7 +133,7 @@ class _CookRecipeSheetState extends ConsumerState<CookRecipeSheet> {
           recipeUnit: requiredUnit,
           pantryAmount: pantryAmount,
           pantryUnit: pantryUnit,
-          densityGml: densityGml,
+          densityGml: null,
         );
 
         final controller = TextEditingController(
@@ -156,7 +148,6 @@ class _CookRecipeSheetState extends ConsumerState<CookRecipeSheet> {
             requiredUnit: requiredUnit,
             pantryUnit: pantryUnit,
             pantryAmount: pantryAmount,
-            densityGml: densityGml,
             requiresText: lineState.requiresText,
             pantryText: lineState.pantryText,
             controller: controller,
