@@ -5,6 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_ingredient.dart';
 import 'package:kuchtik/features/recipes/ui/view_models/cook_recipe_view_model.dart';
 import 'package:kuchtik/features/recipes/ui/view_models/recipe_detail_view_model.dart';
+import 'package:kuchtik/features/recipes/ui/view_models/favorite_recipes_view_model.dart';
 import 'package:kuchtik/features/recipes/ui/widgets/cook_recipe_action_sheet.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_detail.dart';
 
@@ -69,6 +70,12 @@ class RecipeDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final detailAsync = ref.watch(recipeDetailViewModelProvider(recipeId));
     final cookAsync = ref.watch(cookRecipeViewModelProvider);
+    final favoriteIdsAsync = ref.watch(favoriteRecipeIdsProvider);
+
+    final isFavorite = favoriteIdsAsync.maybeWhen(
+      data: (ids) => ids.contains(recipeId),
+      orElse: () => false,
+    );
 
     final appBarTitle = detailAsync.maybeWhen(
       data: (recipe) => recipe.title,
@@ -80,6 +87,23 @@ class RecipeDetailScreen extends ConsumerWidget {
         title: Text(
           appBarTitle?.isNotEmpty == true ? appBarTitle! : 'Recipe',
         ),
+        actions: [
+          IconButton(
+            onPressed: (favoriteIdsAsync.isLoading || favoriteIdsAsync.hasError)
+                ? null
+                : () {
+                    ref
+                        .read(favoriteRecipeIdsProvider.notifier)
+                        .toggleFavorite(recipeId);
+                  },
+            icon: Icon(
+              isFavorite ? Icons.favorite : Icons.favorite_border,
+            ),
+            tooltip: isFavorite
+                ? 'Odebrat z oblíbených'
+                : 'Uložit do oblíbených',
+          ),
+        ],
       ),
       bottomNavigationBar: detailAsync.maybeWhen(
         data: (recipe) {

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kuchtik/features/pantry/ui/pantry_screen.dart';
 import 'package:kuchtik/core/services/notification_service.dart';
 import 'package:kuchtik/features/dashboard/ui/dashboard_screen.dart';
+import 'package:kuchtik/features/recipes/ui/favorite_recipes_screen.dart';
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key, required this.title});
@@ -20,8 +21,21 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   final List<Widget> _pages = [
     const PantryScreen(),
     const DashboardScreen(),
-    const Center(child: Text('My Recipes Page')),
+    const FavoriteRecipesScreen(),
   ];
+
+  String _titleForIndex(int index) {
+    switch (index) {
+      case 0:
+        return 'Moje zásoby';
+      case 1:
+        return widget.title;
+      case 2:
+        return 'Oblíbené';
+      default:
+        return widget.title;
+    }
+  }
 
   @override
   void initState() {
@@ -38,7 +52,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
-        title: Text(widget.title),
+        title: Text(_titleForIndex(_selectedIndex)),
       ),
       body: _pages[_selectedIndex],
       bottomNavigationBar: NavigationBar(
@@ -62,7 +76,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           NavigationDestination(
             icon: Icon(Icons.book_outlined),
             selectedIcon: Icon(Icons.book),
-            label: 'Moje recepty',
+            label: 'Oblíbené',
           ),
         ],
       ),

@@ -27,17 +27,19 @@ class RecipeRepository {
   }
 
   RecipeDashboardItem _mapDashboardItem(
-    Map<String, dynamic> json, {
-    String? missingOneText,
-  }) {
-    final rawPath = json['image_url'] as String?;
-    final fullUrl = _resolveImageUrl(rawPath);
-    return RecipeDashboardItem.fromJson(
-      json,
-      resolvedImageUrl: fullUrl,
-      missingOneText: missingOneText,
-    );
-  }
+  Map<String, dynamic> json, {
+  String? missingOneText,
+  Set<String> urgentIds = const {},
+}) {
+  final rawPath = json['image_url'] as String?;
+  final fullUrl = _resolveImageUrl(rawPath);
+  return RecipeDashboardItem.fromJson(
+    json,
+    resolvedImageUrl: fullUrl,
+    missingOneText: missingOneText,
+    urgentIds: urgentIds,
+  );
+}
 
   Future<Set<String>> _getUserPantryIngredientIds() async {
     final user = supabase.auth.currentUser;
@@ -127,6 +129,40 @@ class RecipeRepository {
 
     if (urgentIngredientIds.isEmpty) return [];
 
+    // IMPORTANT:
+    // Using `recipe_ingredient!inner(...)` in the same select will truncate the
+    // returned `recipe_ingredient` array to only the matching (urgent) rows,
+    // which breaks the ingredient availability chip (it shows 1/1, 2/2, ...).
+    //
+    // So we first find matching recipe ids, then fetch full recipes with all
+    // ingredients.
+
+    final idFetchLimit = (limit * 6).clamp(20, 200);
+
+    final idResponse = await supabase
+        .from('recipes')
+        .select('''
+          id,
+          recipe_ingredient!inner(ingredient_id)
+        ''')
+        .eq('is_public', true)
+        .inFilter(
+          'recipe_ingredient.ingredient_id',
+          urgentIngredientIds.toList(),
+        )
+        .limit(idFetchLimit);
+
+    final orderedIds = <String>[];
+    final seenIds = <String>{};
+    for (final row in idResponse) {
+      final id = (row['id'] as String?)?.trim();
+      if (id == null || id.isEmpty) continue;
+      if (seenIds.add(id)) orderedIds.add(id);
+      if (orderedIds.length >= limit) break;
+    }
+
+    if (orderedIds.isEmpty) return [];
+
     final response = await supabase
         .from('recipes')
         .select('''
@@ -134,22 +170,31 @@ class RecipeRepository {
           title,
           image_url,
           tags,
-          recipe_ingredient!inner(
+          recipe_ingredient(
             ingredient_id,
-              ingredients(id, name)
+            ingredients(id, name)
           )
-          ''')
+        ''')
         .eq('is_public', true)
-        .inFilter(
-          'recipe_ingredient.ingredient_id',
-          urgentIngredientIds.toList(),
-        )
-        .limit(limit);
+        .inFilter('id', orderedIds);
 
-    final items = List<Map<String, dynamic>>.from(
-      response,
-    ).map(_mapDashboardItem);
-    return _dedupeById(items);
+    final mapped = List<Map<String, dynamic>>.from(response)
+    .map((json) => _mapDashboardItem(json, urgentIds: urgentIngredientIds))
+    .toList(growable: false);
+
+    final byId = <String, RecipeDashboardItem>{
+      for (final item in mapped) item.id: item,
+    };
+
+    final orderedItems = <RecipeDashboardItem>[];
+    for (final id in orderedIds) {
+      final item = byId[id];
+      if (item != null) orderedItems.add(item);
+    }
+    orderedItems.sort((a, b) =>
+    b.urgentIngredientCount.compareTo(a.urgentIngredientCount));
+
+    return _dedupeById(orderedItems);
   }
 
   Future<List<RecipeDashboardItem>> getPerfectMatchRecipes({
