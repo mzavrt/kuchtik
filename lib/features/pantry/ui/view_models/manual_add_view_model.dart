@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kuchtik/features/pantry/data/repositories/user_pantry_repository.dart';
 import 'package:kuchtik/features/pantry/domain/ingredient.dart';
-import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
+import 'package:kuchtik/features/pantry/ui/view_models/pantry_view_model.dart';
 
 final manualAddViewModelProvider =
     NotifierProvider.autoDispose<ManualAddViewModel, ManualAddState>(
@@ -66,10 +66,10 @@ class ManualAddViewModel extends Notifier<ManualAddState> {
   int _nextId = 1;
 
   double _initialAmountFor(Ingredient ingredient) {
-  final est = ingredient.estValue;
+  final est = ingredient.defaultValuePerPiece;
 
   if (est != null && est > 0 && ingredient.measurementType != 'piece') {
-    return est.toDouble();
+    return est;
   }
 
   return 1.0;
@@ -166,14 +166,13 @@ class ManualAddViewModel extends Notifier<ManualAddState> {
                   Duration(days: x.ingredient.defaultUseWithinDays!),
                 ).toIso8601String()
               : null,
-          'is_discounted': false,
           'actual_value_per_piece': null,
         });
       }
 
       await ref.read(userPantryRepositoryProvider).addIngredientsToPantry(payload);
 
-      ref.invalidate(fridgeViewModelProvider);
+      ref.invalidate(pantryViewModelProvider);
       state = ManualAddState.initial();
    } catch (e) {
   final message = switch (e) {

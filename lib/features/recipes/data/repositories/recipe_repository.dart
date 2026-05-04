@@ -49,12 +49,14 @@ class RecipeRepository {
 
     final response = await supabase
         .from('user_pantry')
-        .select('ingredient_id')
-        .eq('user_id', user.id);
+        .select('ingredient_id, amount')
+        .eq('user_id', user.id)
+        .gt('amount', 0);
 
     return response
-        .map((r) => r['ingredient_id'] as String)
-        .where((id) => id.isNotEmpty)
+      .map((r) => (r['ingredient_id'] as String?)?.trim())
+      .whereType<String>()
+      .where((id) => id.isNotEmpty)
         .toSet();
   }
 
@@ -88,8 +90,11 @@ class RecipeRepository {
 
     for (final ri in recipeIngredients) {
       if (ri is! Map<String, dynamic>) continue;
-      final ingredientId = ri['ingredient_id'] as String?;
-      if (ingredientId == null) continue;
+      final ingredientId = (ri['ingredient_id'] as String?)?.trim();
+      if (ingredientId == null || ingredientId.isEmpty) {
+        missingCount += 1;
+        continue;
+      }
 
       if (!pantryIngredientIds.contains(ingredientId)) {
         missingCount += 1;
@@ -201,7 +206,7 @@ class RecipeRepository {
     int limit = 20,
   }) async {
     final pantryIngredientIds = await _getUserPantryIngredientIds();
-    final recipes = await _getPublicRecipesWithIngredients(limit: 80);
+    final recipes = await _getPublicRecipesWithIngredients(limit: 200);
 
     final result = <RecipeDashboardItem>[];
     for (final json in recipes) {
@@ -284,7 +289,8 @@ class RecipeRepository {
           '''
         id, 
         title, 
-        instructions, 
+        servings,
+        instruction_steps,
         image_url, 
         is_public, 
         created_by,

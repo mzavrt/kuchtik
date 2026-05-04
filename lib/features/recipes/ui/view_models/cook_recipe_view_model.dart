@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
+import 'package:kuchtik/features/pantry/ui/view_models/pantry_view_model.dart';
 import 'package:kuchtik/features/recipes/data/repositories/cook_recipe_repository.dart';
 import 'package:kuchtik/features/recipes/domain/cook_recipe_choice.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_detail.dart';
@@ -74,7 +74,7 @@ class CookRecipeViewModel extends AsyncNotifier<void> {
         choices: choices,
       );
 
-      ref.invalidate(fridgeViewModelProvider);
+      ref.invalidate(pantryViewModelProvider);
 
       state = const AsyncData(null);
     } catch (e, st) {

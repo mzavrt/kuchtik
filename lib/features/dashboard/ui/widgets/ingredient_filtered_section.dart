@@ -1,8 +1,8 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kuchtik/features/dashboard/ui/widgets/recipe_card.dart';
 import 'package:kuchtik/features/dashboard/ui/widgets/section_header_delegate.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_dashboard_item.dart';
 
@@ -113,8 +113,9 @@ class IngredientFilteredSection extends ConsumerWidget {
                         const SizedBox(width: 12),
                     itemBuilder: (context, index) {
                       final recipe = filtered[index];
-                      return IngredientRecipeCard(
+                      return RecipeCard(
                         recipe: recipe,
+                        variant: RecipeCardVariant.discovery,
                         onTap: () => onRecipeTap(recipe),
                       );
                     },
@@ -122,85 +123,6 @@ class IngredientFilteredSection extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class IngredientRecipeCard extends StatelessWidget {
-  const IngredientRecipeCard({
-    super.key,
-    required this.recipe,
-    this.onTap,
-  });
-
-  final Recipe recipe;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-
-    return SizedBox(
-      width: 220,
-      child: Card.filled(
-        margin: EdgeInsets.zero,
-        clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: InkWell(
-          onTap: onTap,
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: CachedNetworkImage(
-                  imageUrl: recipe.imageUrl,
-                  fit: BoxFit.cover,
-                  placeholder: (context, url) => ColoredBox(
-                    color: colorScheme.surfaceContainerHighest,
-                  ),
-                  errorWidget: (context, url, error) => ColoredBox(
-                    color: colorScheme.surfaceContainerHighest,
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      color: colorScheme.onSurfaceVariant,
-                      size: 40,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.78),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: 12,
-                right: 12,
-                bottom: 12,
-                child: Text(
-                  recipe.title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    height: 1.15,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

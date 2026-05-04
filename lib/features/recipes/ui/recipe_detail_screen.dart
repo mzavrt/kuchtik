@@ -145,7 +145,7 @@ class RecipeDetailScreen extends ConsumerWidget {
         ),
         data: (recipe) {
           final theme = Theme.of(context);
-          final instructions = recipe.instructions.trim();
+          final steps = recipe.steps;
 
           return ListView(
             padding: const EdgeInsets.all(16),
@@ -191,6 +191,20 @@ class RecipeDetailScreen extends ConsumerWidget {
                 Text(
                   'By ${recipe.createdBy}',
                   style: theme.textTheme.bodySmall,
+                ),
+              ],
+
+              if (recipe.servings > 0) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    const Icon(Icons.people_outline, size: 18),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Servings: ${recipe.servings}',
+                      style: theme.textTheme.bodyMedium,
+                    ),
+                  ],
                 ),
               ],
 
@@ -251,12 +265,33 @@ class RecipeDetailScreen extends ConsumerWidget {
                     children: [
                       _sectionHeader(context, 'Instructions'),
                       const SizedBox(height: 8),
-                      Text(
-                        instructions.isEmpty
-                            ? 'No instructions provided.'
-                            : instructions,
-                        style: theme.textTheme.bodyMedium,
-                      ),
+                      if (steps.isEmpty)
+                        Text(
+                          'No instructions provided.',
+                          style: theme.textTheme.bodyMedium,
+                        )
+                      else
+                        ...steps.asMap().entries.map((entry) {
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                CircleAvatar(
+                                  radius: 12,
+                                  child: Text('${entry.key + 1}'),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    entry.value,
+                                    style: theme.textTheme.bodyLarge,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
                     ],
                   ),
                 ),

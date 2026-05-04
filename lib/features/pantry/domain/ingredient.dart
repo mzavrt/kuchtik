@@ -10,11 +10,14 @@ class Ingredient {
   /// 'piece' | 'weight' | 'volume'
   final String measurementType;
 
-  /// Estimated value per 1 unit (in [estUnit]).
-  final double? estValue;
+  /// Default estimated value per 1 piece (in [defaultValueUnit]).
+  ///
+  /// Example: 1 egg  60 g => defaultValuePerPiece=60, defaultValueUnit='g'.
+  final double? defaultValuePerPiece;
 
-  /// 'g'|'ml' for weight/volume types, null for piece.
-  final String? estUnit;
+  /// Unit for [defaultValuePerPiece] and/or default unit hint for measurement.
+  /// Typically 'g' or 'ml'.
+  final String? defaultValueUnit;
 
   /// Estimated price (Kč)
   final double? estPrice;
@@ -30,8 +33,8 @@ class Ingredient {
     required this.emoji,
     required this.isStaple,
     required this.measurementType,
-    required this.estValue,
-    required this.estUnit,
+    required this.defaultValuePerPiece,
+    required this.defaultValueUnit,
     required this.estPrice,
     required this.defaultUseWithinDays,
   });
@@ -47,8 +50,11 @@ class Ingredient {
       isStaple: (json['is_staple'] as bool?) ?? false,
 
       measurementType: (json['measurement_type'] as String?) ?? 'piece',
-      estValue: (json['est_value'] as num?)?.toDouble(),
-      estUnit: json['est_unit'] as String?,
+      defaultValuePerPiece:
+          (json['default_value_per_piece'] as num?)?.toDouble(),
+      defaultValueUnit:
+          (json['default_value_unit'] as String?),
+      
       estPrice: (json['est_price'] as num?)?.toDouble(),
       defaultUseWithinDays: json['default_use_within_days'] as int?,
     );
@@ -56,8 +62,8 @@ class Ingredient {
 
 
 String get derivedUnit => switch (measurementType.trim()) {
-  'weight' => estUnit ?? 'g',
-  'volume' => estUnit ?? 'ml',
+  'weight' => defaultValueUnit ?? 'g',
+  'volume' => defaultValueUnit ?? 'ml',
   _ => 'ks',
 };
 }

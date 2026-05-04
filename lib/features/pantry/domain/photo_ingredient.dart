@@ -6,7 +6,7 @@ class PhotoIngredient {
   final String unit;
   final double price;
   final int expiresInDays;
-  final bool isDiscounted;
+  
 
   PhotoIngredient({
     required this.ingredient,
@@ -14,17 +14,45 @@ class PhotoIngredient {
     required this.unit,
     required this.price,
     required this.expiresInDays,
-    required this.isDiscounted,
+  
   });
 
-  factory PhotoIngredient.fromJson(Map<String, dynamic> json) {
+  PhotoIngredient copyWith({
+    Ingredient? ingredient,
+    double? amount,
+    String? unit,
+    double? price,
+    int? expiresInDays,
+  
+  }) {
     return PhotoIngredient(
-      ingredient: Ingredient.fromJson(json['ingredient']), //Table ingredients
-      amount: (json['amount'] as num).toDouble(),
-      unit: json['unit'],
-      price: json['price'] != null ? (json['price'] as num).toDouble() : 0, //Can return null if not sure
-      expiresInDays: json['expires_in_days'] as int,
-      isDiscounted: json['is_discounted'] as bool,
+      ingredient: ingredient ?? this.ingredient,
+      amount: amount ?? this.amount,
+      unit: unit ?? this.unit,
+      price: price ?? this.price,
+      expiresInDays: expiresInDays ?? this.expiresInDays,
+   
+    );
+  }
+
+  factory PhotoIngredient.fromJson(Map<String, dynamic> json) {
+    final amountRaw = json['amount'] ?? json['quantity'];
+    final unitRaw = json['unit'] ?? '';
+    final priceRaw = json['price'] ?? json['price_czk'] ?? json['price_paid'];
+    final expiresRaw = json['expires_in_days'] ?? json['expiresInDays'];
+
+    return PhotoIngredient(
+      ingredient: Ingredient.fromJson(
+        Map<String, dynamic>.from(
+          (json['ingredient'] ?? json['ingredients']) as Map,
+        ),
+      ),
+      amount: (amountRaw as num?)?.toDouble() ?? 0,
+      unit: unitRaw is String ? unitRaw : unitRaw.toString(),
+      // Can return null if not sure.
+      price: (priceRaw as num?)?.toDouble() ?? 0,
+      expiresInDays: (expiresRaw as num?)?.toInt() ?? 0,
+  
     );
   }
 }

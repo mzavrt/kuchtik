@@ -7,7 +7,7 @@ import 'package:kuchtik/core/extensions/string_extension.dart';
 import 'package:kuchtik/features/pantry/data/repositories/image_scan_repository.dart';
 import 'package:kuchtik/features/pantry/domain/photo_ingredient.dart';
 import 'package:kuchtik/features/pantry/data/repositories/user_pantry_repository.dart';
-import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
+import 'package:kuchtik/features/pantry/ui/view_models/pantry_view_model.dart';
 import 'package:kuchtik/core/services/notification_service.dart';
 import 'package:kuchtik/core/utils/notification_strings.dart';
 
@@ -99,8 +99,10 @@ class ImageResultScreenViewModel extends AsyncNotifier<List<PhotoIngredient>> {
           'amount': amount,
           'unit': units[i],
           'price_paid': price,
-          'expires_at': expiresAts[i].toIso8601String(),
-          'is_discounted': ingredients[i].isDiscounted,
+          'expires_at': ingredients[i].ingredient.defaultUseWithinDays != null
+              ? DateTime.now().add(
+                  Duration(days: ingredients[i].ingredient.defaultUseWithinDays!))
+              : DateTime.now().add(const Duration(days: 7)),         
         });
 
         final ingredientName = ingredients[i].ingredient.name;
@@ -117,7 +119,7 @@ class ImageResultScreenViewModel extends AsyncNotifier<List<PhotoIngredient>> {
 
 
       // Ensure the pantry list is refreshed when the user navigates back.
-      ref.invalidate(fridgeViewModelProvider);
+      ref.invalidate(pantryViewModelProvider);
     } catch (e) {
       rethrow;
     }

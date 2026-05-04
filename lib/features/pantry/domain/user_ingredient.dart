@@ -7,7 +7,7 @@ class UserIngredient {
   final String unit;
   final double? pricePaid;
   final DateTime? expiresAt;
-  final bool isDiscounted;
+
   final double? actualValuePerPiece;
 
   UserIngredient({
@@ -17,7 +17,7 @@ class UserIngredient {
     required this.unit,
     required this.pricePaid,
     required this.expiresAt,
-    required this.isDiscounted,
+
     required this.actualValuePerPiece,
   });
 
@@ -31,7 +31,6 @@ class UserIngredient {
       expiresAt: json['expires_at'] == null
           ? null
           : DateTime.parse(json['expires_at'] as String),
-      isDiscounted: (json['is_discounted'] as bool?) ?? false,
       actualValuePerPiece:
           (json['actual_value_per_piece'] as num?)?.toDouble(),
     );
@@ -44,7 +43,6 @@ class UserIngredient {
     String? unit,
     Object? pricePaid = _unset,
     Object? expiresAt = _unset,
-    bool? isDiscounted,
     Object? actualValuePerPiece = _unset,
   }) {
     return UserIngredient(
@@ -56,7 +54,6 @@ class UserIngredient {
           identical(pricePaid, _unset) ? this.pricePaid : pricePaid as double?,
       expiresAt:
           identical(expiresAt, _unset) ? this.expiresAt : expiresAt as DateTime?,
-      isDiscounted: isDiscounted ?? this.isDiscounted,
       actualValuePerPiece: identical(actualValuePerPiece, _unset)
           ? this.actualValuePerPiece
           : actualValuePerPiece as double?,

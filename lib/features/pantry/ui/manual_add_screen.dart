@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kuchtik/features/pantry/domain/ingredient.dart';
-import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
+import 'package:kuchtik/features/pantry/ui/view_models/pantry_view_model.dart';
 import 'package:kuchtik/features/pantry/ui/view_models/manual_add_view_model.dart';
 
 class ManualAddScreen extends ConsumerStatefulWidget {
@@ -243,10 +243,10 @@ class _ManualAddScreenState extends ConsumerState<ManualAddScreen> {
                       final amountInt = item.amount.round();
 
                       final hasEstimate =
-                          isPiece && item.ingredient.estValue != null;
+                          isPiece && item.ingredient.defaultValuePerPiece != null;
 
                       final estimatedTotal = hasEstimate
-                          ? amountInt * item.ingredient.estValue!
+                          ? amountInt * item.ingredient.defaultValuePerPiece!
                           : null;
 
                       return Dismissible(
@@ -352,7 +352,7 @@ class _ManualAddScreenState extends ConsumerState<ManualAddScreen> {
                                     if (hasEstimate) ...[
                                       const SizedBox(width: 8),
                                       Text(
-                                        '≈ ${estimatedTotal!.toStringAsFixed(0)}${item.ingredient.estUnit ?? ''}',
+                                        '≈ ${estimatedTotal!.toStringAsFixed(0)}${item.ingredient.defaultValueUnit ?? ''}',
                                         style:
                                             theme.textTheme.bodySmall?.copyWith(
                                           color:

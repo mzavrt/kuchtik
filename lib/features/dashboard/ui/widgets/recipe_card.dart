@@ -53,10 +53,6 @@ class RecipeCard extends ConsumerWidget {
     height += 24;
   }
 
-  if (variant == RecipeCardVariant.discovery && recipe.tags.isNotEmpty) {
-    height += 34;
-  }
-
   return height;
 }
 
@@ -187,7 +183,7 @@ class RecipeCard extends ConsumerWidget {
         if (variant == RecipeCardVariant.missingOne &&
             recipe.missingOneText != null)
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+            padding: const EdgeInsets.only(bottom: 4),
             child: Text(
               'Chybí: ${recipe.missingOneText}',
               maxLines: 1,
@@ -196,39 +192,6 @@ class RecipeCard extends ConsumerWidget {
                 color: Colors.white,
                 fontWeight: FontWeight.w600,
               ),
-            ),
-          ),
-
-        if (variant == RecipeCardVariant.discovery && recipe.tags.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: recipe.tags
-                  .take(2)
-                  .map(
-                    (t) => Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colorScheme.surface.withValues(
-                          alpha: 0.20,
-                        ),
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '#$t',
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
             ),
           ),
 

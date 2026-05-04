@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kuchtik/features/dashboard/ui/states/dashboard_state.dart';
+import 'package:kuchtik/features/pantry/providers/user_pantry_ingredient_ids_provider.dart';
+import 'package:kuchtik/features/pantry/ui/view_models/pantry_view_model.dart';
 import 'package:kuchtik/features/recipes/data/repositories/recipe_repository.dart';
 
 final recipeViewModelProvider =
@@ -13,6 +15,9 @@ class DashboardViewModel extends AsyncNotifier<DashboardState> {
 
   @override
   Future<DashboardState> build() async {
+    // Recompute dashboard sections whenever the pantry changes.
+    await ref.watch(userPantryIngredientIdsProvider.future);
+
     final urgent = await _recipeRepository.getUrgentRecipes();
     final perfectMatch = await _recipeRepository.getPerfectMatchRecipes();
     final missingOne = await _recipeRepository.getMissingOneRecipes();

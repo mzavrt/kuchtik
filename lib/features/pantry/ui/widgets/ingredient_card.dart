@@ -1,139 +1,165 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:kuchtik/features/pantry/domain/user_ingredient.dart';
+import 'package:kuchtik/features/pantry/ui/widgets/bottom_sheet_update_ingredient.dart';
 
 class IngredientCard extends StatelessWidget {
-  IngredientCard({
+  const IngredientCard({
     super.key,
-    required this.title,
-    required this.amountController,
-    required this.unit,
-    required this.units,
-    required this.onUnitChanged,
-    this.priceController,
-    this.expiresAt,
-    this.onExpiresAtChanged,
-    this.onConfirm,
-    this.confirmLabel = 'Add',
+    required this.item,
+    required this.onRemove,
+    required this.onUpdate,
   });
 
-  final String title;
-  final TextEditingController amountController;
-  final String unit;
-  final List<String> units;
-  final ValueChanged<String?> onUnitChanged;
+  static const int _expirationVisibilityThresholdDays = 14;
 
-  final TextEditingController? priceController;
-  final DateTime? expiresAt;
-  final ValueChanged<DateTime>? onExpiresAtChanged;
+  final UserIngredient item;
+  final Future<dynamic> Function(String) onRemove;
+  final Future<dynamic> Function(UserIngredient) onUpdate;
 
-  final VoidCallback? onConfirm; // <-- if null, no button
-  final String confirmLabel;
-  final decimalFormatter = TextInputFormatter.withFunction((oldValue, newValue) {
-    final text = newValue.text;
-    final ok = RegExp(r'^\d*([.,]\d*)?$').hasMatch(text); // one dot OR comma
-    return ok ? newValue : oldValue;
-  });
+  String _formatAmount(num value) {
+    final intValue = value.toInt();
+
+    if (value == intValue) return intValue.toString();
+
+    return value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  String _formatAmountWithUnit(num amount, String unit) {
+    final normalizedUnit = unit.trim().toLowerCase();
+
+    if (normalizedUnit == 'g' && amount >= 1000 && amount % 1000 == 0) {
+      return '${_formatAmount(amount / 1000)} kg';
+    }
+
+    if (normalizedUnit == 'ml' && amount >= 1000 && amount % 1000 == 0) {
+      return '${_formatAmount(amount / 1000)} l';
+    }
+
+    return '${_formatAmount(amount)} $unit';
+  }
+
+  String _dayWord(int n) {
+    if (n == 1) return 'den';
+    if (n >= 2 && n <= 4) return 'dny';
+    return 'dní';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final integerOnly = unit == 'ks' || unit == 'g' || unit == 'ml';
-    final canPickExpiry = expiresAt != null && onExpiresAtChanged != null;
+    final expiresAt = item.expiresAt?.toLocal();
+    final now = DateTime.now();
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: amountController,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
-                    inputFormatters: integerOnly
-                        ? [FilteringTextInputFormatter.digitsOnly]
-                        : [decimalFormatter],
-                    decoration: const InputDecoration(labelText: 'Amount'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                DropdownButton<String>(
-                  value: unit,
-                  items: units
-                      .map((u) => DropdownMenuItem(value: u, child: Text(u)))
-                      .toList(),
-                  onChanged: onUnitChanged,
-                ),
-                if (onConfirm != null) ...[
-                  const SizedBox(width: 8),
-                  FilledButton(
-                    onPressed: onConfirm,
-                    child: Text(confirmLabel),
-                  ),
-                ],
-              ],
-            ),
-            if (priceController != null || canPickExpiry) ...[
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  if (priceController != null)
-                    Expanded(
-                      child: TextField(
-                        controller: priceController,
-                        keyboardType:
-                            const TextInputType.numberWithOptions(decimal: true),
-                        inputFormatters: [decimalFormatter],
-                        decoration: const InputDecoration(labelText: 'Price'),
-                      ),
-                    ),
-                  if (priceController != null && canPickExpiry)
-                    const SizedBox(width: 12),
-                  if (canPickExpiry)
-                    Expanded(
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Expires',
-                          border: OutlineInputBorder(),
-                          contentPadding:
-                              EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        ),
-                        child: Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton(
-                            onPressed: () async {
-                              final current = expiresAt!;
-                              final picked = await showDatePicker(
-                                context: context,
-                                initialDate: current,
-                                firstDate: DateTime.now().subtract(
-                                  const Duration(days: 365 * 2),
-                                ),
-                                lastDate: DateTime.now().add(
-                                  const Duration(days: 365 * 10),
-                                ),
-                              );
-                              if (picked == null) return;
-                              onExpiresAtChanged!(picked);
-                            },
-                            child: Text(
-                              MaterialLocalizations.of(context)
-                                  .formatShortDate(expiresAt!),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ],
-          ],
-        ),
+    int? daysLeft;
+
+    if (expiresAt != null) {
+      final diff = expiresAt.difference(now);
+      daysLeft = diff.isNegative ? 0 : (diff.inHours / 24).ceil();
+    }
+
+    final shouldShowExpiration =
+        daysLeft != null && daysLeft <= _expirationVisibilityThresholdDays;
+
+    final subtitleText = !shouldShowExpiration
+        ? ''
+        : daysLeft == 0
+            ? 'Vypršelo'
+            : 'Zbývá $daysLeft ${_dayWord(daysLeft)}';
+
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final Color? subtitleColor = !shouldShowExpiration
+        ? null
+        : daysLeft! < 3
+            ? colorScheme.error
+            : daysLeft < 7
+                ? colorScheme.tertiary
+                : null;
+
+    final emoji = (item.ingredient.emoji ?? '').trim();
+    final hasEmoji = emoji.isNotEmpty;
+
+    return Dismissible(
+  key: ValueKey(item.id),
+  direction: DismissDirection.endToStart,
+  background: Container(
+    alignment: Alignment.centerRight,
+    padding: const EdgeInsets.only(right: 24),
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.error,
+      borderRadius: BorderRadius.circular(12),
+    ),
+    child: Icon(
+      Icons.delete_outline,
+      color: Theme.of(context).colorScheme.onError,
+    ),
+  ),
+  confirmDismiss: (_) async {
+    return true;
+  },
+  onDismissed: (_) async {
+    await onRemove(item.id);
+
+    if (!context.mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ingredience odstraněna.'),
       ),
     );
+  },
+  child: Card(
+    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+    child: ListTile(
+      leading: hasEmoji
+          ? Text(
+              emoji,
+              style: Theme.of(context).textTheme.headlineSmall,
+            )
+          : const Icon(Icons.kitchen),
+      title: Row(
+        children: [
+          Expanded(
+            child: Text(
+              item.ingredient.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            _formatAmountWithUnit(item.amount, item.unit),
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+          ),
+        ],
+      ),
+      subtitle: SizedBox(
+        height: 20,
+        child: shouldShowExpiration
+            ? Text(
+                subtitleText,
+                style: TextStyle(color: subtitleColor),
+              )
+            : null,
+      ),
+      onTap: () async {
+        await showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          showDragHandle: true,
+          builder: (sheetContext) {
+            return BottomSheetUpdateIngredient(
+              item: item,
+              onUpdate: onUpdate,
+            );
+          },
+        );
+      },
+    ),
+  ),
+);
   }
 }

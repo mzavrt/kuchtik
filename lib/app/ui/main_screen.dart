@@ -29,7 +29,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       case 0:
         return 'Moje zásoby';
       case 1:
-        return widget.title;
+        return 'Vítej, kuchtíku!';
       case 2:
         return 'Oblíbené';
       default:

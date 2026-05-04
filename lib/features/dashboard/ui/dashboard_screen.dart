@@ -6,7 +6,7 @@ import 'package:kuchtik/features/dashboard/ui/widgets/ingredient_filtered_sectio
 import 'package:kuchtik/features/dashboard/ui/widgets/recipe_card.dart';
 import 'package:kuchtik/features/dashboard/ui/widgets/section_header_delegate.dart';
 import 'package:kuchtik/features/pantry/domain/user_ingredient.dart';
-import 'package:kuchtik/features/pantry/ui/view_models/fridge_view_model.dart';
+import 'package:kuchtik/features/pantry/ui/view_models/pantry_view_model.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_dashboard_item.dart';
 import 'package:kuchtik/features/recipes/ui/generated_recipes_screen.dart';
 import 'package:kuchtik/features/recipes/ui/recipe_detail_screen.dart';
@@ -23,7 +23,7 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final dashboardAsync = ref.watch(recipeViewModelProvider);
-    final pantryAsync = ref.watch(fridgeViewModelProvider);
+    final pantryAsync = ref.watch(pantryViewModelProvider);
 
     return dashboardAsync.when(
       loading: () => const Scaffold(
