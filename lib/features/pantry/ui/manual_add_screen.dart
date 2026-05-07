@@ -64,6 +64,19 @@ class _ManualAddScreenState extends ConsumerState<ManualAddScreen> {
     return '$emoji $name';
   }
 
+  String _estimateLabelFor(ManualDraftItem item) {
+    final ingredient = item.ingredient;
+    final unit = ingredient.derivedUnit;
+
+    if (unit != 'ks') return '';
+    if (!ingredient.hasDefaultPieceValue) return '';
+
+    final amount = item.amount.round();
+    final estimatedTotal = amount * ingredient.defaultValuePerPiece!;
+
+    return '≈ ${estimatedTotal.toStringAsFixed(0)}${ingredient.defaultValueUnit ?? ''}';
+  }
+
   Future<void> _openSwapIngredientSheet(
     BuildContext context, {
     required ManualDraftItem item,
@@ -237,17 +250,11 @@ class _ManualAddScreenState extends ConsumerState<ManualAddScreen> {
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final item = state.items[index];
-                      final isPiece =
-                          item.ingredient.measurementType == 'piece';
-                      final unit = item.ingredient.derivedUnit;
+                      final ingredient = item.ingredient;
+                      final unit = ingredient.derivedUnit;
+                      final usesStepper = unit == 'ks';
                       final amountInt = item.amount.round();
-
-                      final hasEstimate =
-                          isPiece && item.ingredient.defaultValuePerPiece != null;
-
-                      final estimatedTotal = hasEstimate
-                          ? amountInt * item.ingredient.defaultValuePerPiece!
-                          : null;
+                      final estimateLabel = _estimateLabelFor(item);
 
                       return Dismissible(
                         key: ValueKey(item.localId),
@@ -280,14 +287,14 @@ class _ManualAddScreenState extends ConsumerState<ManualAddScreen> {
                                     item: item,
                                   ),
                                   child: Text(
-                                    _labelForIngredient(item.ingredient),
+                                    _labelForIngredient(ingredient),
                                     style: theme.textTheme.titleMedium,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
                                   children: [
-                                    if (isPiece) ...[
+                                    if (usesStepper) ...[
                                       IconButton(
                                         tooltip: 'Méně',
                                         onPressed: amountInt <= 1
@@ -349,14 +356,17 @@ class _ManualAddScreenState extends ConsumerState<ManualAddScreen> {
                                         style: theme.textTheme.titleSmall,
                                       ),
                                     ],
-                                    if (hasEstimate) ...[
+                                    if (estimateLabel.isNotEmpty) ...[
                                       const SizedBox(width: 8),
-                                      Text(
-                                        '≈ ${estimatedTotal!.toStringAsFixed(0)}${item.ingredient.defaultValueUnit ?? ''}',
-                                        style:
-                                            theme.textTheme.bodySmall?.copyWith(
-                                          color:
-                                              theme.colorScheme.onSurfaceVariant,
+                                      Flexible(
+                                        child: Text(
+                                          estimateLabel,
+                                          style:
+                                              theme.textTheme.bodySmall?.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
                                     ],

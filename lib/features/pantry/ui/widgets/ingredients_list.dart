@@ -21,6 +21,8 @@ class IngredientsList extends StatefulWidget {
 class _IngredientsListState extends State<IngredientsList> {
   final TextEditingController _searchController = TextEditingController();
 
+  final Set<String> _expandedIngredientIds = {};
+
   String _query = '';
   String? _selectedCategory;
 
@@ -47,9 +49,13 @@ class _IngredientsListState extends State<IngredientsList> {
     };
   }
 
+  List<_PantryDisplayItem> get _displayItems {
+    return _buildDisplayItems(widget._items);
+  }
+
   List<String> get _categories {
-    final categories = widget._items
-        .map((item) => item.ingredient.category.trim())
+    final categories = _displayItems
+        .map((item) => item.representative.ingredient.category.trim())
         .where((category) => category.isNotEmpty)
         .toSet()
         .toList();
@@ -61,11 +67,11 @@ class _IngredientsListState extends State<IngredientsList> {
     return categories;
   }
 
-  List<UserIngredient> get _filteredItems {
+  List<_PantryDisplayItem> get _filteredItems {
     final query = _normalize(_query);
 
-    return widget._items.where((item) {
-      final ingredient = item.ingredient;
+    return _displayItems.where((displayItem) {
+      final ingredient = displayItem.representative.ingredient;
 
       final matchesCategory = _selectedCategory == null ||
           ingredient.category.trim() == _selectedCategory;
@@ -82,8 +88,10 @@ class _IngredientsListState extends State<IngredientsList> {
   }
 
   int _countForCategory(String category) {
-    return widget._items
-        .where((item) => item.ingredient.category.trim() == category)
+    return _displayItems
+        .where(
+          (item) => item.representative.ingredient.category.trim() == category,
+        )
         .length;
   }
 
@@ -96,10 +104,33 @@ class _IngredientsListState extends State<IngredientsList> {
     });
   }
 
+  void _toggleGroup(_PantryDisplayItem displayItem) {
+    final ingredientId = displayItem.representative.ingredient.id;
+
+    setState(() {
+      if (_expandedIngredientIds.contains(ingredientId)) {
+        _expandedIngredientIds.remove(ingredientId);
+      } else {
+        _expandedIngredientIds.add(ingredientId);
+      }
+    });
+  }
+
+  Future<void> _removeDisplayItem(_PantryDisplayItem displayItem) async {
+    for (final item in displayItem.items) {
+      await widget.onRemove(item.id);
+    }
+
+    setState(() {
+      _expandedIngredientIds.remove(displayItem.representative.ingredient.id);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final filteredItems = _filteredItems;
     final categories = _categories;
+    final totalVisibleItems = _displayItems.length;
 
     return Column(
       children: [
@@ -134,7 +165,6 @@ class _IngredientsListState extends State<IngredientsList> {
             },
           ),
         ),
-
         if (categories.isNotEmpty)
           SizedBox(
             height: 44,
@@ -148,7 +178,7 @@ class _IngredientsListState extends State<IngredientsList> {
                   final selected = _selectedCategory == null;
 
                   return FilterChip(
-                    label: Text('📦 Vše (${widget._items.length})'),
+                    label: Text('📦 Vše ($totalVisibleItems)'),
                     selected: selected,
                     onSelected: (_) {
                       setState(() {
@@ -176,9 +206,7 @@ class _IngredientsListState extends State<IngredientsList> {
               },
             ),
           ),
-
         const SizedBox(height: 4),
-
         Expanded(
           child: filteredItems.isEmpty
               ? _NoMatchingIngredientsState(
@@ -192,12 +220,53 @@ class _IngredientsListState extends State<IngredientsList> {
                   separatorBuilder: (context, index) =>
                       const Divider(height: 1),
                   itemBuilder: (context, index) {
-                    final item = filteredItems[index];
+                    final displayItem = filteredItems[index];
+                    final isGroup = displayItem.items.length > 1;
+                    final ingredientId =
+                        displayItem.representative.ingredient.id;
+                    final isExpanded =
+                        _expandedIngredientIds.contains(ingredientId);
 
-                    return IngredientCard(
-                      item: item,
-                      onRemove: widget.onRemove,
-                      onUpdate: widget.onUpdate,
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IngredientCard(
+                          item: displayItem.representative,
+                          displayAmount: displayItem.displayAmount,
+                          displayUnit: displayItem.displayUnit,
+                          displayText: displayItem.amountText,
+                          stateText: displayItem.stateText,
+                          showExpiration: true,
+                          enableUpdate: !isGroup,
+                          onRemove: widget.onRemove,
+                          onRemoveGroup: () => _removeDisplayItem(displayItem),
+                          onUpdate: widget.onUpdate,
+                          onTapOverride:
+                              isGroup ? () => _toggleGroup(displayItem) : null,
+                          trailingIcon: isGroup
+                              ? AnimatedRotation(
+                                  turns: isExpanded ? 0.25 : 0,
+                                  duration: const Duration(milliseconds: 180),
+                                  child: const Icon(Icons.chevron_right),
+                                )
+                              : null,
+                        ),
+                        if (isGroup && isExpanded)
+                          Padding(
+                            padding: const EdgeInsets.only(left: 28, right: 8),
+                            child: Column(
+                              children: displayItem.items.map((item) {
+                                return IngredientCard(
+                                  item: item,
+                                  showExpiration: true,
+                                  dense: true,
+                                  onRemove: widget.onRemove,
+                                  onUpdate: widget.onUpdate,
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                      ],
                     );
                   },
                 ),
@@ -205,6 +274,215 @@ class _IngredientsListState extends State<IngredientsList> {
       ],
     );
   }
+}
+
+class _PantryDisplayItem {
+  const _PantryDisplayItem({
+    required this.representative,
+    required this.items,
+    required this.displayAmount,
+    required this.displayUnit,
+    required this.amountText,
+    this.stateText,
+  });
+
+  final UserIngredient representative;
+  final List<UserIngredient> items;
+  final num displayAmount;
+  final String displayUnit;
+
+  /// Amount text shown on the right side of the row.
+  ///
+  /// Example:
+  /// - "100 ml"
+  /// - "1 ks + 200 g"
+  /// - "2 ks"
+  final String amountText;
+
+  /// Optional state text shown in the subtitle metadata row.
+  ///
+  /// Example:
+  /// - "otevřeno"
+  /// - "část otevřena"
+  final String? stateText;
+}
+
+List<_PantryDisplayItem> _buildDisplayItems(List<UserIngredient> items) {
+  final grouped = <String, List<UserIngredient>>{};
+
+  for (final item in items) {
+    grouped.putIfAbsent(item.ingredient.id, () => []).add(item);
+  }
+
+  final displayItems = grouped.values.map((groupItems) {
+    final sortedItems = [...groupItems]..sort((a, b) {
+        final aExpires = a.expiresAt;
+        final bExpires = b.expiresAt;
+
+        if (aExpires == null && bExpires == null) {
+          return a.createdAt.compareTo(b.createdAt);
+        }
+
+        if (aExpires == null) return 1;
+        if (bExpires == null) return -1;
+
+        final byExpiration = aExpires.compareTo(bExpires);
+        if (byExpiration != 0) return byExpiration;
+
+        return a.createdAt.compareTo(b.createdAt);
+      });
+
+    final representative = sortedItems.first;
+    final ingredient = representative.ingredient;
+
+    if (ingredient.isPerPackage) {
+      final wholeKs = sortedItems
+          .where((item) => item.unit.trim().toLowerCase() == 'ks')
+          .fold<num>(
+            0,
+            (sum, item) => sum + item.amount,
+          );
+
+      final leftoverByUnit = <String, num>{};
+
+      for (final item in sortedItems) {
+        final unit = item.unit.trim().toLowerCase();
+
+        if (item.isLeftover && (unit == 'g' || unit == 'ml')) {
+          leftoverByUnit[unit] = (leftoverByUnit[unit] ?? 0) + item.amount;
+        }
+      }
+
+      final amountParts = <String>[];
+
+      if (wholeKs > 0) {
+        amountParts.add('${_formatNumber(wholeKs)} ks');
+      }
+
+      final leftoverGrams = leftoverByUnit['g'] ?? 0;
+      if (leftoverGrams > 0) {
+        amountParts.add(_formatAmountWithUnit(leftoverGrams, 'g'));
+      }
+
+      final leftoverMl = leftoverByUnit['ml'] ?? 0;
+      if (leftoverMl > 0) {
+        amountParts.add(_formatAmountWithUnit(leftoverMl, 'ml'));
+      }
+
+      final hasLeftover = leftoverGrams > 0 || leftoverMl > 0;
+
+      final amountText = amountParts.isEmpty ? '0 ks' : amountParts.join(' + ');
+
+      final visualPackageCount =
+          wholeKs + (leftoverGrams > 0 ? 1 : 0) + (leftoverMl > 0 ? 1 : 0);
+
+      final stateText = hasLeftover
+          ? wholeKs > 0
+              ? 'část otevřena'
+              : 'otevřeno'
+          : null;
+
+      return _PantryDisplayItem(
+        representative: representative,
+        items: sortedItems,
+        displayAmount: visualPackageCount,
+        displayUnit: 'ks',
+        amountText: amountText,
+        stateText: stateText,
+      );
+    }
+
+    final preferredUnit = ingredient.derivedUnit.trim().toLowerCase();
+
+    final matchingPreferredUnit = sortedItems
+        .where((item) => item.unit.trim().toLowerCase() == preferredUnit)
+        .toList();
+
+    if (matchingPreferredUnit.isNotEmpty) {
+      final amount = matchingPreferredUnit.fold<num>(
+        0,
+        (sum, item) => sum + item.amount,
+      );
+
+      final displayUnit = ingredient.derivedUnit;
+      final amountText = _formatAmountWithUnit(amount, displayUnit);
+
+      return _PantryDisplayItem(
+        representative: representative,
+        items: sortedItems,
+        displayAmount: amount,
+        displayUnit: displayUnit,
+        amountText: amountText,
+      );
+    }
+
+    final firstUnit = representative.unit.trim().toLowerCase();
+
+    final matchingFirstUnit = sortedItems
+        .where((item) => item.unit.trim().toLowerCase() == firstUnit)
+        .toList();
+
+    final amount = matchingFirstUnit.fold<num>(
+      0,
+      (sum, item) => sum + item.amount,
+    );
+
+    final displayUnit = representative.unit;
+    final amountText = _formatAmountWithUnit(amount, displayUnit);
+
+    return _PantryDisplayItem(
+      representative: representative,
+      items: sortedItems,
+      displayAmount: amount,
+      displayUnit: displayUnit,
+      amountText: amountText,
+    );
+  }).toList();
+
+  displayItems.sort((a, b) {
+    final aExpires = a.representative.expiresAt;
+    final bExpires = b.representative.expiresAt;
+
+    if (aExpires == null && bExpires == null) {
+      return a.representative.ingredient.name
+          .toLowerCase()
+          .compareTo(b.representative.ingredient.name.toLowerCase());
+    }
+
+    if (aExpires == null) return 1;
+    if (bExpires == null) return -1;
+
+    final byExpiration = aExpires.compareTo(bExpires);
+    if (byExpiration != 0) return byExpiration;
+
+    return a.representative.ingredient.name
+        .toLowerCase()
+        .compareTo(b.representative.ingredient.name.toLowerCase());
+  });
+
+  return displayItems;
+}
+
+String _formatNumber(num value) {
+  final intValue = value.toInt();
+
+  if (value == intValue) return intValue.toString();
+
+  return value.toStringAsFixed(2).replaceFirst(RegExp(r'\.?0+$'), '');
+}
+
+String _formatAmountWithUnit(num amount, String unit) {
+  final normalizedUnit = unit.trim().toLowerCase();
+
+  if (normalizedUnit == 'g' && amount >= 1000 && amount % 1000 == 0) {
+    return '${_formatNumber(amount / 1000)} kg';
+  }
+
+  if (normalizedUnit == 'ml' && amount >= 1000 && amount % 1000 == 0) {
+    return '${_formatNumber(amount / 1000)} l';
+  }
+
+  return '${_formatNumber(amount)} $unit';
 }
 
 class _NoMatchingIngredientsState extends StatelessWidget {

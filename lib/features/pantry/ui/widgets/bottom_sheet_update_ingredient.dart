@@ -77,9 +77,9 @@ class _BottomSheetUpdateIngredientState
     );
 
     _actualValuePerPieceController = TextEditingController(
-      text: widget.item.actualValuePerPiece == null
+      text: widget.item.valuePerPiece == null
           ? ''
-          : _formatDouble(widget.item.actualValuePerPiece!),
+          : _formatDouble(widget.item.valuePerPiece!),
     );
   }
 
@@ -95,7 +95,7 @@ class _BottomSheetUpdateIngredientState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final unit = _derivedUnit(widget.item.ingredient);
-    final showActualWeight = unit == 'ks';
+    final showActualValue = unit == 'ks';
 
     return Padding(
       padding: EdgeInsets.only(bottom: bottomInset),
@@ -186,7 +186,7 @@ class _BottomSheetUpdateIngredientState
                 ],
               ),
           
-              if (showActualWeight) ...[
+              if (showActualValue) ...[
                 const SizedBox(height: 12),
                 TextField(
                   controller: _actualValuePerPieceController,
@@ -220,7 +220,7 @@ class _BottomSheetUpdateIngredientState
                       _priceController.text,
                     );
 
-                    final newActualWeight = showActualWeight
+                    final newActualValuePerPiece = showActualValue
                         ? _tryParseNullableDouble(
                             _actualValuePerPieceController.text,
                           )
@@ -231,7 +231,7 @@ class _BottomSheetUpdateIngredientState
                         amount: newAmount,
                         pricePaid: newPrice,
                         expiresAt: _selectedExpiresAt,                    
-                        actualValuePerPiece: newActualWeight,
+                        valuePerPiece: newActualValuePerPiece,
                       ),
                     );
 

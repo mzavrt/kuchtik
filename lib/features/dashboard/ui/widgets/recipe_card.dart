@@ -4,9 +4,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:kuchtik/features/recipes/domain/recipe_dashboard_item.dart';
 import 'package:kuchtik/features/recipes/ui/view_models/favorite_recipes_view_model.dart';
-import 'package:kuchtik/features/pantry/providers/user_pantry_ingredient_ids_provider.dart';
 
-enum RecipeCardVariant { urgent, perfectMatch, missingOne, discovery, favorites }
+enum RecipeCardVariant {
+  urgent,
+  perfectMatch,
+  missingOne,
+  discovery,
+  favorites,
+  ingredientFilter,
+}
 
 class RecipeCard extends ConsumerWidget {
   const RecipeCard({
@@ -22,39 +28,48 @@ class RecipeCard extends ConsumerWidget {
   final VoidCallback? onTap;
   final double? width;
 
-  int _countAvailableIngredients({
-    required Set<String> pantryIngredientIds,
-    required List<String> recipeIngredientIds,
-  }) {
-    if (recipeIngredientIds.isEmpty || pantryIngredientIds.isEmpty) return 0;
+  double _bottomContentHeight(
+    RecipeCardVariant variant,
+    RecipeDashboardItem recipe,
+  ) {
+    var height = 50.0; // title height, reserved for max 2 lines
 
-    var count = 0;
-    final seen = <String>{};
-    for (final id in recipeIngredientIds) {
-      if (!seen.add(id)) continue;
-      if (pantryIngredientIds.contains(id)) count += 1;
+    final showIngredientMatch = recipe.totalIngredients > 0;
+    final showUrgentText =
+        variant == RecipeCardVariant.urgent &&
+        recipe.urgentIngredientCount > 0;
+    final showMissingOneText =
+        variant == RecipeCardVariant.missingOne &&
+        recipe.missingOneText != null;
+
+    if (showIngredientMatch) {
+      height += 34;
     }
 
-    return count;
+    if (showUrgentText) {
+      height += 22;
+    }
+
+    if (showMissingOneText) {
+      height += 24;
+    }
+
+    return height;
   }
 
-  double _bottomContentHeight(
-  RecipeCardVariant variant,
-  RecipeDashboardItem recipe,
-) {
-  var height = 46.0; // reserved title height, always 2 lines
+  String _urgentText(int count) {
+    if (count <= 0) return '';
 
-  if (recipe.ingredientIds.isNotEmpty) {
-    height += 34; // ingredient chip + bottom padding
+    if (count == 1) {
+      return 'Zachráníš 1 surovinu';
+    }
+
+    if (count >= 2 && count <= 4) {
+      return 'Zachráníš $count suroviny';
+    }
+
+    return 'Zachráníš $count surovin';
   }
-
-  if (variant == RecipeCardVariant.missingOne &&
-      recipe.missingOneText != null) {
-    height += 24;
-  }
-
-  return height;
-}
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -67,21 +82,24 @@ class RecipeCard extends ConsumerWidget {
       orElse: () => false,
     );
 
-    final pantryIdsAsync = ref.watch(userPantryIngredientIdsProvider);
-    final totalIngredients = recipe.ingredientIds.toSet().length;
-    final availableIngredients = pantryIdsAsync.maybeWhen(
-      data: (ids) => _countAvailableIngredients(
-        pantryIngredientIds: ids,
-        recipeIngredientIds: recipe.ingredientIds,
-      ),
-      orElse: () => null,
-    );
+    final showIngredientMatch = recipe.totalIngredients > 0;
+    final isPerfectIngredientMatch = showIngredientMatch &&
+        recipe.availableIngredients >= recipe.totalIngredients;
+
+    final showUrgentText =
+        variant == RecipeCardVariant.urgent &&
+        recipe.urgentIngredientCount > 0;
+    final showMissingOneText =
+        variant == RecipeCardVariant.missingOne &&
+        recipe.missingOneText != null;
 
     final card = Card(
       elevation: 2,
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
@@ -91,8 +109,9 @@ class RecipeCard extends ConsumerWidget {
               child: CachedNetworkImage(
                 imageUrl: recipe.imageUrl,
                 fit: BoxFit.cover,
-                placeholder: (context, url) =>
-                    ColoredBox(color: colorScheme.surfaceContainerHighest),
+                placeholder: (context, url) => ColoredBox(
+                  color: colorScheme.surfaceContainerHighest,
+                ),
                 errorWidget: (context, url, error) => ColoredBox(
                   color: colorScheme.surfaceContainerHighest,
                   child: Icon(
@@ -103,6 +122,7 @@ class RecipeCard extends ConsumerWidget {
                 ),
               ),
             ),
+
             Positioned.fill(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -110,111 +130,117 @@ class RecipeCard extends ConsumerWidget {
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
+                      Colors.black.withValues(alpha: 0.10),
                       Colors.transparent,
-                      Colors.black.withValues(alpha: 0.75),
+                      Colors.black.withValues(alpha: 0.78),
                     ],
                   ),
                 ),
               ),
             ),
+
+            if (recipe.prepTimeMinutes != null)
+              Positioned(
+                left: 12,
+                top: 12,
+                child: _RecipeBadge(
+                  icon: Icons.schedule,
+                  label: '${recipe.prepTimeMinutes} min',
+                ),
+              ),
+
             Positioned(
               right: 12,
               top: 12,
               child: IconButton.filledTonal(
-                onPressed: (favoriteIdsAsync.isLoading || favoriteIdsAsync.hasError)
-                    ? null
-                    : () {
-                        ref
-                            .read(favoriteRecipeIdsProvider.notifier)
-                            .toggleFavorite(recipe.id);
-                      },
+                onPressed:
+                    (favoriteIdsAsync.isLoading || favoriteIdsAsync.hasError)
+                        ? null
+                        : () {
+                            ref
+                                .read(favoriteRecipeIdsProvider.notifier)
+                                .toggleFavorite(recipe.id);
+                          },
                 icon: Icon(
                   isFavorite ? Icons.favorite : Icons.favorite_border,
                   color: isFavorite ? colorScheme.error : null,
                 ),
-                tooltip: isFavorite ? 'Odebrat z oblíbených' : 'Uložit do oblíbených',
+                tooltip:
+                    isFavorite ? 'Odebrat z oblíbených' : 'Uložit do oblíbených',
               ),
             ),
+
             Positioned(
-  left: 12,
-  right: 12,
-  bottom: 12,
-  child: SizedBox(
-    height: _bottomContentHeight(variant, recipe),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (totalIngredients > 0)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: colorScheme.surface.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.14),
+              left: 12,
+              right: 12,
+              bottom: 12,
+              child: SizedBox(
+                height: _bottomContentHeight(variant, recipe),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (showIngredientMatch)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _RecipeBadge(
+                          icon: isPerfectIngredientMatch
+                              ? Icons.check
+                              : Icons.kitchen,
+                          label:
+                              '${recipe.availableIngredients}/${recipe.totalIngredients}',
+                          dark: !isPerfectIngredientMatch,
+                          success: isPerfectIngredientMatch,
+                        ),
+                      ),
+
+                    if (showUrgentText)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          _urgentText(recipe.urgentIngredientCount),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: const Color(0xFFFFE082),
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+
+                    if (showMissingOneText)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          'Chybí: ${recipe.missingOneText}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+
+                    SizedBox(
+                      height: 42,
+                      child: Align(
+                        alignment: Alignment.topLeft,
+                        child: Text(
+                          recipe.title,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                            height: 1.15,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(
-                    Icons.kitchen,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${availableIngredients ?? '—'}/$totalIngredients',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
             ),
-          ),
-
-        if (variant == RecipeCardVariant.missingOne &&
-            recipe.missingOneText != null)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 4),
-            child: Text(
-              'Chybí: ${recipe.missingOneText}',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-
-        SizedBox(
-          height: 42,
-          child: Align(
-            alignment: Alignment.topLeft,
-            child: Text(
-              recipe.title,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                height: 1.15,
-              ),
-            ),
-          ),
-        ),
-      ],
-    ),
-  ),
-),
           ],
         ),
       ),
@@ -222,5 +248,73 @@ class RecipeCard extends ConsumerWidget {
 
     if (width == null) return card;
     return SizedBox(width: width, child: card);
+  }
+}
+
+class _RecipeBadge extends StatelessWidget {
+  const _RecipeBadge({
+    required this.icon,
+    required this.label,
+    this.dark = false,
+    this.success = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool dark;
+  final bool success;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final backgroundColor = success
+        ? colorScheme.primaryContainer
+        : dark
+            ? colorScheme.surface.withValues(alpha: 0.22)
+            : colorScheme.surface.withValues(alpha: 0.78);
+
+    final foregroundColor = success
+        ? colorScheme.onPrimaryContainer
+        : dark
+            ? Colors.white
+            : colorScheme.onSurface;
+
+    final borderColor = success
+        ? colorScheme.primary.withValues(alpha: 0.40)
+        : Colors.white.withValues(alpha: 0.16);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: backgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: borderColor,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: foregroundColor,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: foregroundColor,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -157,5 +157,3 @@ class _PantryScreenState extends ConsumerState<PantryScreen> {
     );
   }
 }
-
-

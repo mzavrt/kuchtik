@@ -1,12 +1,16 @@
-import 'package:diacritic/diacritic.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kuchtik/features/dashboard/domain/ingredient_chip.dart';
 import 'package:kuchtik/features/dashboard/ui/widgets/recipe_card.dart';
 import 'package:kuchtik/features/dashboard/ui/widgets/section_header_delegate.dart';
+import 'package:kuchtik/features/recipes/data/repositories/recipe_repository.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_dashboard_item.dart';
 
-typedef Recipe = RecipeDashboardItem;
+typedef IngredientRecipeFilterArgs = ({
+  String ingredientId,
+  String? mealType,
+});
 
 final _selectedIngredientProvider =
     NotifierProvider.autoDispose<_SelectedIngredientNotifier, String?>(
@@ -17,51 +21,58 @@ class _SelectedIngredientNotifier extends Notifier<String?> {
   @override
   String? build() => null;
 
-  void toggle(String ingredient) {
-    state = state == ingredient ? null : ingredient;
+  void select(String ingredientId) {
+    state = ingredientId;
   }
 }
+
+final _filteredRecipesProvider = FutureProvider.autoDispose
+    .family<List<RecipeDashboardItem>, IngredientRecipeFilterArgs>(
+  (ref, args) {
+    return ref.read(recipeRepositoryProvider).getRecipesForIngredientFilter(
+          ingredientId: args.ingredientId,
+          mealType: args.mealType,
+        );
+  },
+);
 
 class IngredientFilteredSection extends ConsumerWidget {
   const IngredientFilteredSection({
     super.key,
     required this.availableIngredients,
-    required this.allRecipes,
     required this.onRecipeTap,
+    this.mealType,
   });
 
-  final List<String> availableIngredients;
-  final List<Recipe> allRecipes;
-  final ValueChanged<Recipe> onRecipeTap;
-
-  String _stripLeadingEmoji(String value) {
-    // Removes leading emoji/symbols from strings like "🍅 Rajčata".
-    return value.replaceFirst(RegExp(r'^[^\p{L}\p{N}]+', unicode: true), '').trim();
-  }
-
-  String _normalize(String value) {
-    return removeDiacritics(_stripLeadingEmoji(value)).toLowerCase().trim();
-  }
+  final List<IngredientChip> availableIngredients;
+  final ValueChanged<RecipeDashboardItem> onRecipeTap;
+  final String? mealType;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final selected = ref.watch(_selectedIngredientProvider);
-    final selectedNorm = selected == null ? null : _normalize(selected);
+    if (availableIngredients.isEmpty) {
+      return const SliverToBoxAdapter(
+        child: SizedBox.shrink(),
+      );
+    }
 
-    final filtered = selectedNorm == null
-        ? allRecipes
-        : allRecipes
-            .where(
-              (recipe) => recipe.ingredientNames.any(
-                (nameRaw) {
-                  final name = _normalize(nameRaw);
-                  return name == selectedNorm ||
-                      name.contains(selectedNorm) ||
-                      selectedNorm.contains(name);
-                },
-              ),
+    final selectedId = ref.watch(_selectedIngredientProvider);
+
+    final effectiveSelectedId = selectedId == null ||
+            !availableIngredients.any(
+              (ingredient) => ingredient.id == selectedId,
             )
-            .toList(growable: false);
+        ? availableIngredients.first.id
+        : selectedId;
+
+    final filteredAsync = ref.watch(
+      _filteredRecipesProvider(
+        (
+          ingredientId: effectiveSelectedId,
+          mealType: mealType,
+        ),
+      ),
+    );
 
     return SliverMainAxisGroup(
       slivers: [
@@ -74,21 +85,24 @@ class IngredientFilteredSection extends ConsumerWidget {
             height: 60,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 10,
+              ),
               itemCount: availableIngredients.length,
-              separatorBuilder: (context, index) => const SizedBox(width: 10),
+              separatorBuilder: (_, __) => const SizedBox(width: 10),
               itemBuilder: (context, index) {
                 final ingredient = availableIngredients[index];
-                final isSelected = ingredient == selected;
+                final isSelected = ingredient.id == effectiveSelectedId;
 
                 return ChoiceChip(
-                  label: Text(ingredient),
+                  label: Text(ingredient.label),
                   showCheckmark: false,
                   selected: isSelected,
                   onSelected: (_) {
                     ref
                         .read(_selectedIngredientProvider.notifier)
-                        .toggle(ingredient);
+                        .select(ingredient.id);
                   },
                 );
               },
@@ -98,28 +112,37 @@ class IngredientFilteredSection extends ConsumerWidget {
         SliverToBoxAdapter(
           child: SizedBox(
             height: 280,
-            child: filtered.isEmpty
-                ? const Center(
-                    child: Text('Pro tuto surovinu tu nic není.'),
-                  )
-                : ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    itemCount: filtered.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(width: 12),
-                    itemBuilder: (context, index) {
-                      final recipe = filtered[index];
-                      return RecipeCard(
-                        recipe: recipe,
-                        variant: RecipeCardVariant.discovery,
-                        onTap: () => onRecipeTap(recipe),
-                      );
-                    },
+            child: switch (filteredAsync) {
+              AsyncValue(isLoading: true) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              AsyncValue(hasError: true) => Center(
+                  child: Text('Chyba: ${filteredAsync.error}'),
+                ),
+              AsyncValue(value: final recipes?) when recipes.isEmpty =>
+                const Center(
+                  child: Text('Pro tuto surovinu tu nic není.'),
+                ),
+              AsyncValue(value: final recipes?) => ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
                   ),
+                  itemCount: recipes.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 12),
+                  itemBuilder: (context, index) {
+                    final recipe = recipes[index];
+
+                    return RecipeCard(
+                      recipe: recipe,
+                      variant: RecipeCardVariant.ingredientFilter,
+                      onTap: () => onRecipeTap(recipe),
+                    );
+                  },
+                ),
+              _ => const SizedBox.shrink(),
+            },
           ),
         ),
       ],

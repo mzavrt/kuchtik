@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:kuchtik/core/providers/supabase_client.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_detail.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_dashboard_item.dart';
+import 'package:kuchtik/features/dashboard/ui/states/dashboard_state.dart';
+import 'package:kuchtik/features/dashboard/domain/ingredient_chip.dart';
 
 class RecipeRepository {
   final SupabaseClient supabase;
@@ -15,300 +17,131 @@ class RecipeRepository {
     return supabase.storage.from('images').getPublicUrl(rawPath);
   }
 
-  List<RecipeDashboardItem> _dedupeById(Iterable<RecipeDashboardItem> items) {
-    final seen = <String>{};
-    final result = <RecipeDashboardItem>[];
-    for (final item in items) {
-      if (seen.add(item.id)) {
-        result.add(item);
-      }
-    }
-    return result;
+  RecipeDashboardItem _mapDashboardItem(
+    Map<String, dynamic> json, {
+    String? missingOneText,
+  }) {
+    final rawPath = json['image_url'] as String?;
+    final fullUrl = _resolveImageUrl(rawPath);
+
+    return RecipeDashboardItem.fromJson(
+      json,
+      resolvedImageUrl: fullUrl,
+      missingOneText: missingOneText,
+    );
   }
 
-  RecipeDashboardItem _mapDashboardItem(
-  Map<String, dynamic> json, {
-  String? missingOneText,
-  Set<String> urgentIds = const {},
-}) {
-  final rawPath = json['image_url'] as String?;
-  final fullUrl = _resolveImageUrl(rawPath);
-  return RecipeDashboardItem.fromJson(
-    json,
-    resolvedImageUrl: fullUrl,
-    missingOneText: missingOneText,
-    urgentIds: urgentIds,
+  Future<DashboardState> getDashboardRecipes({
+    String? mealType,
+    int urgentDays = 3,
+    int limitPerSection = 20,
+    int discoveryLimit = 20,
+    int urgentMaxMissing = 2,
+  }) async {
+    final user = supabase.auth.currentUser;
+    if (user == null) {
+      throw StateError('User must be logged in to load dashboard recipes.');
+    }
+
+    final data = await supabase.rpc(
+      'get_dashboard_recipes',
+      params: {
+        'p_urgent_days': urgentDays,
+        'p_limit_per_section': limitPerSection,
+        'p_discovery_limit': discoveryLimit,
+        'p_urgent_max_missing': urgentMaxMissing,
+        'p_meal_type': mealType,
+      },
+    ) as Map<String, dynamic>;
+
+    List<RecipeDashboardItem> parseSection(String key) {
+      final rows = data[key] as List<dynamic>? ?? const [];
+
+      return rows
+          .whereType<Map<String, dynamic>>()
+          .map(_mapDashboardItem)
+          .toList(growable: false);
+    }
+
+   return DashboardState(
+  urgentRecipes: parseSection('urgent'),
+  perfectMatchRecipes: parseSection('perfect_match'),
+  missingOneRecipes: parseSection('missing_one'),
+  discoveryRecipes: parseSection('discovery'),
+  ingredientFilters: const [],
+);
+  }
+
+  Future<List<RecipeDashboardItem>> getRecipesForIngredientFilter({
+  required String ingredientId,
+  String? mealType,
+  int limit = 10,
+}) async {
+  final response = await supabase.rpc(
+    'get_recipes_for_ingredient_filter',
+    params: {
+      'p_ingredient_id': ingredientId,
+      'p_limit': limit,
+      'p_meal_type': mealType,
+    },
   );
+
+  final rows = response as List<dynamic>? ?? const [];
+
+  return rows
+      .whereType<Map<String, dynamic>>()
+      .map(_mapDashboardItem)
+      .toList(growable: false);
 }
 
-  Future<Set<String>> _getUserPantryIngredientIds() async {
-    final user = supabase.auth.currentUser;
-    if (user == null) {
-      throw StateError('User must be logged in to load pantry-based recipes.');
-    }
+ Future<List<IngredientChip>> getAvailableIngredientFilters({
+  String? mealType,
+}) async {
+  final response = await supabase.rpc(
+    'get_available_ingredient_filters',
+    params: {
+      'p_meal_type': mealType,
+    },
+  );
 
-    final response = await supabase
-        .from('user_pantry')
-        .select('ingredient_id, amount')
-        .eq('user_id', user.id)
-        .gt('amount', 0);
+  final rows = response as List<dynamic>? ?? const [];
 
-    return response
-      .map((r) => (r['ingredient_id'] as String?)?.trim())
-      .whereType<String>()
-      .where((id) => id.isNotEmpty)
-        .toSet();
-  }
+  return rows.whereType<Map<String, dynamic>>().map((json) {
+    final id = json['id'] as String;
+    final name = (json['name'] as String? ?? '').trim();
+    final emoji = (json['emoji'] as String? ?? '').trim();
+    final label = emoji.isEmpty ? name : '$emoji $name';
 
-  Future<List<Map<String, dynamic>>> _getPublicRecipesWithIngredients({
-    int limit = 60,
-  }) async {
-    final response = await supabase
-        .from('recipes')
-        .select('''
-          id,
-          title,
-          image_url,
-          tags,
-          recipe_ingredient(
-            ingredient_id,
-              ingredients(id, name)
-          )
-          ''')
-        .eq('is_public', true)
-        .limit(limit);
-
-    return List<Map<String, dynamic>>.from(response);
-  }
-
-  ({int missingCount, String? missingName}) _computeMissingInfo({
-    required List<dynamic> recipeIngredients,
-    required Set<String> pantryIngredientIds,
-  }) {
-    var missingCount = 0;
-    String? missingName;
-
-    for (final ri in recipeIngredients) {
-      if (ri is! Map<String, dynamic>) continue;
-      final ingredientId = (ri['ingredient_id'] as String?)?.trim();
-      if (ingredientId == null || ingredientId.isEmpty) {
-        missingCount += 1;
-        continue;
-      }
-
-      if (!pantryIngredientIds.contains(ingredientId)) {
-        missingCount += 1;
-
-        final ingredient = ri['ingredients'];
-        if (missingCount == 1 && ingredient is Map<String, dynamic>) {
-          missingName = ingredient['name'] as String?;
-        }
-      }
-    }
-
-    return (missingCount: missingCount, missingName: missingName);
-  }
-
-  Future<List<RecipeDashboardItem>> getUrgentRecipes({
-    int daysThreshold = 3,
-    int limit = 20,
-  }) async {
-    final user = supabase.auth.currentUser;
-    if (user == null) {
-      throw StateError('User must be logged in to load urgent recipes.');
-    }
-
-    final cutoff = DateTime.now().add(Duration(days: daysThreshold));
-
-    final expiring = await supabase
-        .from('user_pantry')
-        .select('ingredient_id, expires_at')
-        .eq('user_id', user.id)
-        .lte('expires_at', cutoff.toIso8601String());
-
-    final urgentIngredientIds = expiring
-        .map((r) => r['ingredient_id'] as String?)
-        .whereType<String>()
-        .where((id) => id.isNotEmpty)
-        .toSet();
-
-    if (urgentIngredientIds.isEmpty) return [];
-
-    // IMPORTANT:
-    // Using `recipe_ingredient!inner(...)` in the same select will truncate the
-    // returned `recipe_ingredient` array to only the matching (urgent) rows,
-    // which breaks the ingredient availability chip (it shows 1/1, 2/2, ...).
-    //
-    // So we first find matching recipe ids, then fetch full recipes with all
-    // ingredients.
-
-    final idFetchLimit = (limit * 6).clamp(20, 200);
-
-    final idResponse = await supabase
-        .from('recipes')
-        .select('''
-          id,
-          recipe_ingredient!inner(ingredient_id)
-        ''')
-        .eq('is_public', true)
-        .inFilter(
-          'recipe_ingredient.ingredient_id',
-          urgentIngredientIds.toList(),
-        )
-        .limit(idFetchLimit);
-
-    final orderedIds = <String>[];
-    final seenIds = <String>{};
-    for (final row in idResponse) {
-      final id = (row['id'] as String?)?.trim();
-      if (id == null || id.isEmpty) continue;
-      if (seenIds.add(id)) orderedIds.add(id);
-      if (orderedIds.length >= limit) break;
-    }
-
-    if (orderedIds.isEmpty) return [];
-
-    final response = await supabase
-        .from('recipes')
-        .select('''
-          id,
-          title,
-          image_url,
-          tags,
-          recipe_ingredient(
-            ingredient_id,
-            ingredients(id, name)
-          )
-        ''')
-        .eq('is_public', true)
-        .inFilter('id', orderedIds);
-
-    final mapped = List<Map<String, dynamic>>.from(response)
-    .map((json) => _mapDashboardItem(json, urgentIds: urgentIngredientIds))
-    .toList(growable: false);
-
-    final byId = <String, RecipeDashboardItem>{
-      for (final item in mapped) item.id: item,
-    };
-
-    final orderedItems = <RecipeDashboardItem>[];
-    for (final id in orderedIds) {
-      final item = byId[id];
-      if (item != null) orderedItems.add(item);
-    }
-    orderedItems.sort((a, b) =>
-    b.urgentIngredientCount.compareTo(a.urgentIngredientCount));
-
-    return _dedupeById(orderedItems);
-  }
-
-  Future<List<RecipeDashboardItem>> getPerfectMatchRecipes({
-    int limit = 20,
-  }) async {
-    final pantryIngredientIds = await _getUserPantryIngredientIds();
-    final recipes = await _getPublicRecipesWithIngredients(limit: 200);
-
-    final result = <RecipeDashboardItem>[];
-    for (final json in recipes) {
-      final recipeIngredients =
-          json['recipe_ingredient'] as List<dynamic>? ?? const [];
-
-      if (recipeIngredients.isEmpty) {
-        continue;
-      }
-      final missingInfo = _computeMissingInfo(
-        recipeIngredients: recipeIngredients,
-        pantryIngredientIds: pantryIngredientIds,
-      );
-
-      if (missingInfo.missingCount == 0) {
-        result.add(_mapDashboardItem(json));
-      }
-
-      if (result.length >= limit) break;
-    }
-
-    return _dedupeById(result);
-  }
-
-  Future<List<RecipeDashboardItem>> getMissingOneRecipes({
-    int limit = 20,
-  }) async {
-    final pantryIngredientIds = await _getUserPantryIngredientIds();
-    final recipes = await _getPublicRecipesWithIngredients(limit: 120);
-
-    final result = <RecipeDashboardItem>[];
-    for (final json in recipes) {
-      final recipeIngredients =
-          json['recipe_ingredient'] as List<dynamic>? ?? const [];
-
-      if (recipeIngredients.isEmpty) {
-        continue;
-      }
-      final missingInfo = _computeMissingInfo(
-        recipeIngredients: recipeIngredients,
-        pantryIngredientIds: pantryIngredientIds,
-      );
-
-      if (missingInfo.missingCount == 1) {
-        result.add(
-          _mapDashboardItem(json, missingOneText: missingInfo.missingName),
-        );
-      }
-
-      if (result.length >= limit) break;
-    }
-
-    return _dedupeById(result);
-  }
-
-  Future<List<RecipeDashboardItem>> getDiscoveryRecipes({
-    Set<String> excludeRecipeIds = const {},
-    int limit = 20,
-  }) async {
-    final recipes = await _getPublicRecipesWithIngredients(limit: 120);
-    final result = <RecipeDashboardItem>[];
-
-    for (final json in recipes) {
-      final id = json['id'] as String?;
-      if (id == null || id.isEmpty) continue;
-      if (excludeRecipeIds.contains(id)) continue;
-
-      result.add(_mapDashboardItem(json));
-
-      if (result.length >= limit) break;
-    }
-
-    return _dedupeById(result);
-  }
+    return (id: id, label: label);
+  }).toList(growable: false);
+}
 
   Future<RecipeDetail> getRecipeDetail(String recipeId) async {
     final json = await supabase
         .from('recipes')
         .select(
           '''
-        id, 
-        title, 
-        servings,
-        instruction_steps,
-        image_url, 
-        is_public, 
-        created_by,
-        recipe_ingredient!inner (
-          amount,
-          unit,
-          ingredients!inner (
-            id,
-            name
+          id,
+          title,
+          servings,
+          instruction_steps,
+          image_url,
+          is_public,
+          created_by,
+          recipe_ingredient!inner (
+            amount,
+            unit,
+            ingredients!inner (
+              id,
+              name
+            )
           )
-        )
-      ''',
+        ''',
         )
         .eq('id', recipeId)
         .single();
 
     final rawPath = json['image_url'] as String?;
-
     String? fullUrl;
     if (rawPath != null && rawPath.isNotEmpty) {
       fullUrl = supabase.storage.from('images').getPublicUrl(rawPath);

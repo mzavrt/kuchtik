@@ -12,12 +12,14 @@ class RecipeGenerationRepository {
   Future<List<GeneratedRecipe>> generateRecipes({
     int maxRecipes = 3,
     bool quickOnly = true,
+    String? mealType,
   }) async {
     final response = await _supabaseClient.functions.invoke(
       'generate-recipes',
       body: {
         'maxRecipes': maxRecipes,
         'quickOnly': quickOnly,
+        'mealType': mealType,
       },
     );
 

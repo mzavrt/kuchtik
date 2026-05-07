@@ -16,7 +16,7 @@ class IngredientsRepository {
         .schema('public')
         .from('ingredients')
         .select(
-          'id, name, category, default_unit, search_aliases, emoji, is_staple, measurement_type, default_value_per_piece, default_value_unit, est_price, default_use_within_days',
+          'id, name, category, default_unit, search_aliases, emoji, is_staple, measurement_type, default_value_per_piece, default_value_unit, est_price, default_use_within_days, pantry_tracking_mode, default_input_amount',
         );
 
     return response

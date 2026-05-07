@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:kuchtik/core/widgets/app_empty_state.dart';
+import 'package:kuchtik/features/dashboard/ui/providers/meal_type_filter_provider.dart';
 import 'package:kuchtik/features/dashboard/ui/view_models/dashboard_view_model.dart';
 import 'package:kuchtik/features/dashboard/ui/widgets/ingredient_filtered_section.dart';
 import 'package:kuchtik/features/dashboard/ui/widgets/recipe_card.dart';
 import 'package:kuchtik/features/dashboard/ui/widgets/section_header_delegate.dart';
-import 'package:kuchtik/features/pantry/domain/user_ingredient.dart';
 import 'package:kuchtik/features/pantry/ui/view_models/pantry_view_model.dart';
 import 'package:kuchtik/features/recipes/domain/recipe_dashboard_item.dart';
 import 'package:kuchtik/features/recipes/ui/generated_recipes_screen.dart';
 import 'package:kuchtik/features/recipes/ui/recipe_detail_screen.dart';
-import 'package:kuchtik/core/widgets/app_empty_state.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({
@@ -22,7 +22,12 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final dashboardAsync = ref.watch(recipeViewModelProvider);
+    final selectedMealType = ref.watch(selectedMealTypeProvider);
+
+    final dashboardAsync = ref.watch(
+      dashboardViewModelProvider(selectedMealType),
+    );
+
     final pantryAsync = ref.watch(pantryViewModelProvider);
 
     return dashboardAsync.when(
@@ -48,19 +53,14 @@ class DashboardScreen extends ConsumerWidget {
           orElse: () => null,
         );
 
-        final hasPantryItems =
-            pantryItems != null && pantryItems.isNotEmpty;
+        final hasPantryItems = pantryItems != null && pantryItems.isNotEmpty;
+        final availableIngredients = data.ingredientFilters;
 
-        final availableIngredients = pantryItems == null
-            ? const <String>[]
-            : _availableIngredientLabels(pantryItems);
-
-        final allRecipes = _deduplicateRecipes([
-          ...data.urgentRecipes,
-          ...data.perfectMatchRecipes,
-          ...data.missingOneRecipes,
-          ...data.discoveryRecipes,
-        ]);
+        final hasAnyRecipes =
+            data.urgentRecipes.isNotEmpty ||
+            data.perfectMatchRecipes.isNotEmpty ||
+            data.missingOneRecipes.isNotEmpty ||
+            data.discoveryRecipes.isNotEmpty;
 
         return Scaffold(
           body: CustomScrollView(
@@ -80,6 +80,9 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
+
+              if (hasPantryItems || data.discoveryRecipes.isNotEmpty)
+                const _MealTypeFilter(),
 
               if (hasPantryItems && data.urgentRecipes.isNotEmpty)
                 _RecipeSection(
@@ -102,15 +105,14 @@ class DashboardScreen extends ConsumerWidget {
                   variant: RecipeCardVariant.missingOne,
                 ),
 
-              if (hasPantryItems &&
-                  availableIngredients.isNotEmpty &&
-                  allRecipes.isNotEmpty)
+              if (hasPantryItems && availableIngredients.isNotEmpty)
                 IngredientFilteredSection(
                   availableIngredients: availableIngredients,
-                  allRecipes: allRecipes,
-                  onRecipeTap: (recipe) {
-                    _openRecipeDetail(context, recipe.id);
-                  },
+                  mealType: selectedMealType,
+                  onRecipeTap: (recipe) => _openRecipeDetail(
+                    context,
+                    recipe.id,
+                  ),
                 ),
 
               if (data.discoveryRecipes.isNotEmpty)
@@ -122,14 +124,16 @@ class DashboardScreen extends ConsumerWidget {
                   variant: RecipeCardVariant.discovery,
                 ),
 
-              if (data.discoveryRecipes.isEmpty && !hasPantryItems)
-                const SliverFillRemaining(
+              if (!hasAnyRecipes)
+                SliverFillRemaining(
                   hasScrollBody: false,
                   child: Center(
                     child: Padding(
-                      padding: EdgeInsets.all(24),
+                      padding: const EdgeInsets.all(24),
                       child: Text(
-                        'Zatím tu nejsou žádné recepty k objevení.',
+                        selectedMealType == null
+                            ? 'Zatím tu nejsou žádné recepty.'
+                            : 'Pro vybraný typ jídla tu zatím nejsou žádné recepty.',
                         textAlign: TextAlign.center,
                       ),
                     ),
@@ -148,7 +152,9 @@ class DashboardScreen extends ConsumerWidget {
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (_) => const GeneratedRecipesScreen(),
+                        builder: (_) => GeneratedRecipesScreen(
+                          initialMealType: selectedMealType,
+                        ),
                       ),
                     );
                   },
@@ -159,7 +165,7 @@ class DashboardScreen extends ConsumerWidget {
                   elevation: 4,
                   icon: const Icon(Icons.auto_awesome),
                   label: const Text(
-                    'AI Recept na míru',
+                    'Vymyslet z mých zásob',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 )
@@ -176,41 +182,64 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
+}
 
-  List<String> _availableIngredientLabels(List<UserIngredient> items) {
-    final seen = <String>{};
-    final result = <String>[];
+class _MealTypeFilter extends ConsumerWidget {
+  const _MealTypeFilter();
 
-    for (final item in items) {
-      if (item.ingredient.isStaple) continue;
+  static const filters = <({String? value, String label})>[
+    (value: null, label: 'Vše'),
+    (value: 'breakfast', label: 'Snídaně'),
+    (value: 'main_course', label: 'Hlavní chod'),
+    (value: 'soup', label: 'Polévka'),
+    (value: 'snack', label: 'Svačina'),
+    (value: 'dessert', label: 'Dezert'),
+  ];
 
-      final name = item.ingredient.name.trim();
-      if (name.isEmpty) continue;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selected = ref.watch(selectedMealTypeProvider);
 
-      final emoji = (item.ingredient.emoji ?? '').trim();
-      final label = emoji.isEmpty ? name : '$emoji $name';
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Co chceš vařit?',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              height: 42,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: filters.length,
+                separatorBuilder: (_, __) => const SizedBox(width: 8),
+                itemBuilder: (context, index) {
+                  final filter = filters[index];
+                  final isSelected = selected == filter.value;
 
-      if (seen.add(label)) {
-        result.add(label);
-      }
-    }
-
-    return result;
-  }
-
-  List<RecipeDashboardItem> _deduplicateRecipes(
-    List<RecipeDashboardItem> recipes,
-  ) {
-    final result = <RecipeDashboardItem>[];
-    final seenIds = <String>{};
-
-    for (final recipe in recipes) {
-      if (seenIds.add(recipe.id)) {
-        result.add(recipe);
-      }
-    }
-
-    return result;
+                  return ChoiceChip(
+                    label: Text(filter.label),
+                    selected: isSelected,
+                    showCheckmark: false,
+                    onSelected: (_) {
+                      ref
+                          .read(selectedMealTypeProvider.notifier)
+                          .select(filter.value);
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -254,8 +283,9 @@ class _RecipeSection extends StatelessWidget {
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) =>
-                              RecipeDetailScreen(recipeId: recipe.id),
+                          builder: (_) => RecipeDetailScreen(
+                            recipeId: recipe.id,
+                          ),
                         ),
                       );
                     },

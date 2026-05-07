@@ -16,87 +16,119 @@ class GeneratedRecipeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+
+    final visibleIngredients = recipe.ingredients.take(1).toList();
+    final hiddenIngredientCount =
+        recipe.ingredients.length - visibleIngredients.length;
 
     return AnimatedScale(
       scale: isActive ? 1 : 0.97,
       duration: const Duration(milliseconds: 200),
       child: Card(
         clipBehavior: Clip.antiAlias,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                recipe.title,
-                style: theme.textTheme.titleLarge,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                recipe.description,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+        child: InkWell(
+          onTap: onTapDetail,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  recipe.title,
+                  style: theme.textTheme.titleLarge,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 16),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  _InfoChip(
-                    icon: Icons.schedule_outlined,
-                    label: '${recipe.timeMinutes} min',
+
+                const SizedBox(height: 8),
+
+                Text(
+                  recipe.description,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
                   ),
-                  _InfoChip(
-                    icon: Icons.kitchen_outlined,
-                    label: '${recipe.inventoryIngredientCount} z lednice',
-                  ),
-                  if (recipe.expiringIngredientCount > 0)
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                const SizedBox(height: 14),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
                     _InfoChip(
-                      icon: Icons.warning_amber_rounded,
-                      label: '${recipe.expiringIngredientCount} expiring',
+                      icon: Icons.schedule_outlined,
+                      label: '${recipe.timeMinutes} min',
                     ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Text(
-                recipe.inventoryReason,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                    _InfoChip(
+                      icon: Icons.kitchen_outlined,
+                      label: '${recipe.inventoryIngredientCount} z lednice',
+                    ),
+                    if (recipe.expiringIngredientCount > 0)
+                      _InfoChip(
+                        icon: Icons.warning_amber_rounded,
+                        label:
+                            '${recipe.expiringIngredientCount} brzy expirují',
+                      ),
+                  ],
                 ),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const Spacer(),
-              Text(
-                'Ingredience',
-                style: theme.textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: recipe.ingredients.take(4).map((ingredient) {
-                  final label =
-                      '${ingredient.emoji != null ? '${ingredient.emoji} ' : ''}${ingredient.name}';
-                  return Chip(
-                    label: Text(label),
-                  );
-                }).toList(),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: onTapDetail,
-                  child: const Text('Zobrazit detail'),
+
+                const SizedBox(height: 14),
+
+                Text(
+                  recipe.inventoryReason,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            ],
+
+                const SizedBox(height: 18),
+
+                Text(
+                  'Ingredience',
+                  style: theme.textTheme.titleMedium,
+                ),
+
+                const SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    ...visibleIngredients.map((ingredient) {
+                      final emoji = ingredient.emoji?.trim();
+                      final label =
+                          '${emoji != null && emoji.isNotEmpty ? '$emoji ' : ''}${ingredient.name}';
+
+                      return ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 155),
+                        child: Chip(
+                          visualDensity: VisualDensity.compact,
+                          label: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      );
+                    }),
+                    if (hiddenIngredientCount > 0)
+                      Chip(
+                        visualDensity: VisualDensity.compact,
+                        label: Text('+$hiddenIngredientCount další'),
+                      ),
+                  ],
+                ),
+
+                Spacer(),
+
+                
+              ],
+            ),
           ),
         ),
       ),
@@ -116,6 +148,7 @@ class _InfoChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Chip(
+      visualDensity: VisualDensity.compact,
       avatar: Icon(icon, size: 18),
       label: Text(label),
     );
